@@ -7,6 +7,7 @@ inside the differential test (not in native UI runtime).
 from __future__ import annotations
 
 import random
+import json
 
 import pytest
 
@@ -14,6 +15,41 @@ from psx.layout.engine.backend import RustLayoutEngine
 from psx.layout.fallback.engine import PythonLayoutEngine
 from psx.layout.grid.contracts import GridSlot, GridItemConstraints
 from psx.layout.grid.solver import compute_grid, grid_widths
+
+
+def test_compact_native_transport_matches_json_with_constraints_and_opaque_ids():
+    import _sfle_native
+
+    identifiers = ('path/"quoted"', "línea\\dos", "日本語", "embedded\x00id")
+    items = [{"id": value, "span": 3, "offset": 0, "order": 0}
+             for value in identifiers]
+    heights = {value: 10.125 + index for index, value in enumerate(identifiers)}
+    constraints = {identifiers[0]: {
+        "min_width": 40, "max_width": 80, "min_height": 20, "max_height": None,
+    }}
+    for rtl in (False, True):
+        request = dict(items=items, width=537.125, column_gap=5.25,
+                       row_gap=7.5, heights=heights, constraints=constraints, rtl=rtl)
+        expected = json.loads(_sfle_native.compute_grid_json(json.dumps(request)))
+        rows = _sfle_native.compute_grid_compact(
+            [(item["id"], item["span"], item["offset"], item["order"]) for item in items],
+            request["width"], request["column_gap"], request["row_gap"],
+            list(heights.items()),
+            [(key, value["min_width"], value["max_width"], value["min_height"], value["max_height"])
+             for key, value in constraints.items()], rtl,
+        )
+        fields = ("id", "x_raw", "y_raw", "width_raw", "height_raw",
+                  "used_width_raw", "used_height_raw", "overflow_x", "overflow_y")
+        assert [[dict(zip(fields, cell)) for cell in row] for row in rows] == expected
+
+
+@pytest.mark.parametrize("width", (-1.0, float("inf"), float("nan")))
+def test_compact_native_transport_rejects_invalid_geometry(width):
+    import _sfle_native
+
+    with pytest.raises(ValueError):
+        _sfle_native.compute_grid_compact([("a", 12, 0, 0)], width, 0, 0,
+                                         [("a", 10)], [], False)
 
 
 @pytest.mark.parametrize("rtl", [False, True])

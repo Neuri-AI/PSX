@@ -30,9 +30,9 @@ class PreparedGridMeasurement:
     grid_id: str
     generation: int
     child_ids: tuple[str, ...]
-    measurement_revisions: tuple[tuple[str, int], ...]
-    rows: tuple[tuple[GridConstrainedRect, ...], ...]
-    placements: tuple[GridNativePlacement, ...]
+    measurement_revisions: Sequence[tuple[str, int]]
+    rows: Sequence[Sequence[GridConstrainedRect]]
+    placements: Sequence[GridNativePlacement]
 
 
 def _pixel(value: object, name: str) -> float:
@@ -58,6 +58,8 @@ def prepare_grid_measurement(
     breakpoints: Mapping[str, object] = GRID_BREAKPOINTS,
     pixel_scale: float = 1.0,
     engine: object | None = None,
+    structure: object | None = None,
+    structural_heights: Mapping[str, float] | None = None,
 ) -> PreparedGridMeasurement:
     """Resolve responsive Grid items against the Grid content box.
 
@@ -79,10 +81,12 @@ def prepare_grid_measurement(
     if (isinstance(pixel_scale, bool) or not isinstance(pixel_scale, (int, float))
             or not isfinite(pixel_scale) or pixel_scale <= 0):
         raise GridPackingError("Grid native pixel scale must be finite and positive.")
-    props = normalize_grid_props(grid.source.props)
-    children = grid.effective_children
-    slots: list[GridSlot] = []
-    ids: list[str] = []
+    if structure is not None and structure.grid is not grid:
+        raise GridPackingError("Grid structural receipt belongs to a different tree.")
+    props = structure.props if structure is not None else normalize_grid_props(grid.source.props)
+    children = grid.effective_children if structure is None else ()
+    slots = list(structure.slots) if structure is not None else []
+    ids = list(structure.ids) if structure is not None else []
     for child in children:
         if child.kind is not NodeKind.HOST or child.type != "GridItem":
             raise GridPackingError("Grid requires direct GridItem participants.")
@@ -102,7 +106,11 @@ def prepare_grid_measurement(
     ):
         raise GridPackingError("Grid requires actual MeasuredBox receipts.")
     measured = {measurement.node_id: measurement for measurement in measurements}
-    if len(measured) != len(measurements) or set(measured) != set(ids):
+    retained = structural_heights or {}
+    if retained and structure is None:
+        raise GridPackingError("Structural heights need a validated Grid structure.")
+    if (len(measured) != len(measurements) or set(measured) & set(retained)
+            or set(measured) | set(retained) != set(ids)):
         raise GridPackingError("Grid measurements must match direct GridItem identities exactly.")
     for measurement in measurements:
         if not measurement.constraints.width.definite:
@@ -110,21 +118,22 @@ def prepare_grid_measurement(
         if measurement.constraints.width.value is None:
             raise GridPackingError("Grid measurement width is missing.")
     limits = {} if constraints is None else dict(constraints)
-    heights = {
-        item_id: measured[item_id].intrinsic.preferred_height for item_id in ids
-    }
+    heights = dict(retained)
+    heights.update((item_id, receipt.intrinsic.preferred_height)
+                   for item_id, receipt in measured.items())
     rows = compute_grid(
         slots, content_width, _pixel(props["column_gap"], "Grid.column_gap") * pixel_scale,
         _pixel(props["row_gap"], "Grid.row_gap") * pixel_scale,
         heights, limits, rtl=rtl, engine=engine,
     )
     placements = plan_grid_native_geometry(
-        rows, expected_ids=ids, measured_ids=tuple(measured),
+        rows, expected_ids=ids, measured_ids=tuple(heights),
         mounted_ids=mounted_ids, generation=generation,
         current_generation=current_generation,
     )
     return PreparedGridMeasurement(
         path_identity(grid.path), generation, tuple(ids),
-        tuple((identifier, measured[identifier].revision) for identifier in ids),
+        tuple((identifier, measured[identifier].revision if identifier in measured
+               else generation) for identifier in ids),
         rows, placements,
     )

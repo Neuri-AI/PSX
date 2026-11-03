@@ -49,6 +49,7 @@ def commit_kivy_sfle(renderer: "KivyRenderer", root: "MountedInstance") -> None:
     """Measure, compute, validate, project, apply and read back live widgets."""
     if renderer._sfle_constraints is None:
         return
+    from psx.core.structural_binding import DormantWidgetIdentity
     if get_ident() != renderer._sfle_owner_thread:
         raise SFLEError(
             DiagnosticCode.UNSUPPORTED_MEASUREMENT,
@@ -76,15 +77,18 @@ def commit_kivy_sfle(renderer: "KivyRenderer", root: "MountedInstance") -> None:
                                     "Function component needs one mounted root.")
                 component_roots[id(instance.node)] = instance.children[0].node
             else:
-                if instance.handle is None or id(instance.node) in handles:
+                from psx.core.structural_binding import layout_binding
+                binding = layout_binding(instance)
+                if binding is None or id(instance.node) in handles:
                     raise SFLEError(DiagnosticCode.INVALID_TREE,
                                     "Missing or duplicated Kivy layout handle.")
-                handles[id(instance.node)] = instance.handle
+                handles[id(instance.node)] = binding
             mounted_stamp.append(mounted_structural_token(instance))
             for child in instance.children:
                 gather(child)
 
-        gather(root)
+        from psx.layout.projection.mounted_layout_index import mounted_layout_index
+        component_roots, handles, mounted_stamp = mounted_layout_index(renderer, root)
         reuse = getattr(renderer, "_sfle_structural_snapshot_reuse", None)
         if reuse is None:
             reuse = NativeStructuralSnapshotReuse()
@@ -128,12 +132,16 @@ def commit_kivy_sfle(renderer: "KivyRenderer", root: "MountedInstance") -> None:
                                     "Kivy SFLE root does not match host.")
                 continue
             child = bindings[node.node_id].widget
+            if isinstance(child, DormantWidgetIdentity):
+                continue
             parent = bindings[node.parent_id].widget
             owner = (
                 parent._psx_content if getattr(parent, "_psx_sfle_scroll", False)
                 else parent
             )
-            if child.parent is not owner:
+            dormant = id(child) in getattr(
+                renderer, "_psx_native_dormant_widget_ids", frozenset())
+            if child.parent is not owner and not dormant:
                 raise SFLEError(
                     DiagnosticCode.INVALID_TREE, "Actual Kivy parent differs from SFLE tree.", node.node_id,
                 )
@@ -204,6 +212,9 @@ def commit_kivy_sfle(renderer: "KivyRenderer", root: "MountedInstance") -> None:
             leaf_widgets, textarea_ids=textarea_ids, image_ids=image_ids,
             spacer_ids=spacer_ids, divider_nodes=divider_nodes,
         )
+        from psx.layout.runtime.structural_text_probe import StructuralMeasurementSource
+        source = StructuralMeasurementSource(
+            renderer, source, leaf_widgets, prepared.identities, "kivy")
         readings = []
         native_round = renderer._sfle_native_intrinsic_cache.begin(
             invalidate_all=renderer._sfle_measurement_invalidations.invalidate_all,
@@ -462,6 +473,10 @@ def commit_kivy_sfle(renderer: "KivyRenderer", root: "MountedInstance") -> None:
             renderer, prepared, snapshot, result, bindings,
             "kivy", invalidation_epoch,
         )
+        from psx.core.native_materialization import synchronize_native_materialization
+        native_flow_plan = synchronize_native_materialization(
+            renderer, root, bindings, native_flow_plan,
+        )
         deferred_native_ids = native_flow_plan.deferred_ids
         before = {
             node_id: (tuple(handle.widget.pos), tuple(handle.widget.size))
@@ -518,7 +533,8 @@ def commit_kivy_sfle(renderer: "KivyRenderer", root: "MountedInstance") -> None:
                         getattr(host, "_psx_css_semantic_radius", 0),
                         native_stroke[3].width,
                     )
-                    if tuple(native_stroke[3].rounded_rectangle) != tuple(desired_stroke):
+                    actual_stroke = native_stroke[3].rounded_rectangle
+                    if actual_stroke is None or tuple(actual_stroke) != tuple(desired_stroke):
                         native_stroke[3].rounded_rectangle = desired_stroke
             # The outer rollback transaction already captured the exact
             # Grid descendants. Avoid a second full native geometry walk.
@@ -663,6 +679,10 @@ def commit_kivy_sfle(renderer: "KivyRenderer", root: "MountedInstance") -> None:
         # each resize, forcing expensive texture_update() on every GridItem.
         mixed_grid.accept_intrinsic()
         mixed_grid.accept_viewport()
+        from psx.core.native_materialization import finalize_native_materialization
+        native_flow_plan = finalize_native_materialization(
+            renderer, root, bindings, native_flow_plan,
+        )
         native_flow_plan.accept()
         # Exact geometry and solved CSS receipts become reusable only after
         # every P2 workset has passed its native acceptance checks.

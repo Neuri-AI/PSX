@@ -46,6 +46,7 @@ class NativeGeometryCommitter:
         prior_qt_rectangles: Mapping[str, tuple[int, int, int, int]] | None = None,
         prior_kivy_rectangles: Mapping[str, tuple[tuple[float, float], tuple[float, float]]] | None = None,
         deferred_ids: frozenset[str] = frozenset(),
+        surface_rectangles: Mapping[str, Rect] | None = None,
     ) -> None:
         if not isinstance(backend, GeometryBackend):
             raise TypeError("Expected GeometryBackend.")
@@ -83,6 +84,10 @@ class NativeGeometryCommitter:
         if len(self._parents) != len(nodes):
             raise SFLEError(DiagnosticCode.INVALID_TREE, "Duplicate geometry node.")
         self._widgets = dict(widgets)
+        self._surface_rectangles = dict(surface_rectangles or {})
+        if (not set(self._surface_rectangles) <= set(self._parents)
+                or any(not isinstance(rect, Rect) for rect in self._surface_rectangles.values())):
+            raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT, "Invalid native surface rectangles.")
         if not isinstance(deferred_ids, frozenset) or not deferred_ids <= set(self._parents):
             raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT, "Invalid deferred native node identities.")
         # The prior accepted receipt proves these widgets are below the
@@ -112,6 +117,11 @@ class NativeGeometryCommitter:
             raise TypeError("Expected RecursiveMeasurementResult or LayoutResult.")
         if set(boxes) != set(self._parents):
             raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT, "Geometry tree identity mismatch.")
+        # A certified window-clipped structural host need not allocate a
+        # document-sized native drawing surface. Its logical layout/extent
+        # remains in LayoutResult; the renderer owns this explicit physical
+        # surface projection and validates readback against the same receipt.
+        boxes.update(self._surface_rectangles)
         if any(node_id not in self._widgets for node_id in self._parents if self._parents[node_id] is not None):
             raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT, "Missing native geometry widget.")
         # The solver, not a toolkit, owns fixed-point CSS geometry. A

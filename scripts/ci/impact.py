@@ -85,7 +85,7 @@ def _classify_path(path: str) -> set[str]:
             result.update({"qt", "kivy", "tkinter"})
         elif name == "sfle-native-matrix.yml":
             result.add("native")
-        elif name == "sfle-core.yml":
+        elif name == "cinnamon-core.yml":
             result.update({"sfle", "rust"})
         elif name == "grid-resize-performance.yml":
             result.update({"qt", "tkinter"})
@@ -131,11 +131,11 @@ def _classify_path(path: str) -> set[str]:
         return {"core"}
     if path == "pyproject.toml" or path in ("setup.cfg", "setup.py"):
         return {"core", "sfle", "rust", "qt", "kivy", "tkinter", "native"}
-    if path == "rust/sfle-core/src/grid_math.rs":
+    if path == "rust/cinnamon-core/src/grid_math.rs":
         # This isolated mathematical contract is exercised by Rust and
         # Python fixtures; it does not yet change native geometry.
         return {"sfle", "rust"}
-    if path.startswith("rust/sfle-core/"):
+    if path.startswith("rust/cinnamon-core/"):
         return {"sfle", "rust", "chromium", "native"}
     if path in (
         "tests/test_css_cursor_native_adapter.py",

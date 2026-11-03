@@ -423,6 +423,7 @@ class QtRenderer:
         self._sfle_resize_scheduled = False
         self._sfle_resize_epoch = 0
         self._sfle_resize_error: Exception | None = None
+        self._psx_reconcile_offscreen_at_idle = False
         self._sfle_textarea_pending = False
         self._sfle_textarea_epoch = 0
         self._sfle_textarea_error: Exception | None = None
@@ -522,8 +523,11 @@ class QtRenderer:
         if self._sfle_resource_poll_scheduled:
             return
         root = self._sfle_mounted_root
+        owner = getattr(self, "_psx_reconciler", None)
+        native_instances = (owner._native_instances.values()
+                            if owner is not None and owner.root is root else None)
         if (root is None or root.disposed
-                or not self._sfle_image_resource_watch.sync(root)):
+                or not self._sfle_image_resource_watch.sync(root, instances=native_instances)):
             return
         self._sfle_resource_poll_scheduled = True
         epoch = self._sfle_invalidation_lifetime
@@ -536,6 +540,14 @@ class QtRenderer:
         The mounted instance is reused; the existing SFLE transaction remains
         the only writer. Teardown invalidates queued work by epoch.
         """
+        # Projecting the current CSS onto a freshly activated widget is part
+        # of the same layout transaction, not a new semantic edit. Its native
+        # measurements are obtained below the activation fence as needed.
+        if widget_id in getattr(self, "_psx_native_retiring_widget_ids", ()):
+            return
+        if reason == "font" and widget_id in getattr(
+                self, "_psx_native_activation_widget_ids", ()):
+            return
         from psx.layout.runtime.native_measurement_invalidation import MeasurementInvalidations
 
         if self._sfle_constraints is None:
@@ -587,7 +599,14 @@ class QtRenderer:
                 watched[id(widget)] = widget
             for child in instance.children:
                 walk(child)
-        walk(root)
+        owner = getattr(self, "_psx_reconciler", None)
+        if owner is not None and owner.root is root:
+            for instance in owner._native_instances.values():
+                handle = instance.handle
+                if handle is not None and getattr(handle, "widget", None) is not None:
+                    watched[id(handle.widget)] = handle.widget
+        else:
+            walk(root)
         for identity, widget in tuple(self._sfle_style_watched_widgets.items()):
             if identity not in watched:
                 try:

@@ -1455,7 +1455,10 @@ pub fn compute_normalized_incremental_report(
                 baseline_from_cross_start:context.measurements
                     .get(node.node_id.as_str())
                     .and_then(|measurement|if h {measurement.intrinsic.baseline}
-                        else {measurement.intrinsic.orthogonal_baseline}),
+                        else {measurement.intrinsic.orthogonal_baseline})
+                    // Match the existing Python kernel when authored CSS
+                    // constrains a native glyph box below its font ascent.
+                    .map(|baseline| baseline.max(0.0).min(cross)),
             });
         }
         nodes.push(MarginTreeNode {

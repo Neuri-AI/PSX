@@ -58,10 +58,16 @@ class KivyRendererSubprocessTests(unittest.TestCase):
     def test_nested_window_resize_event_does_not_recurse(self) -> None:
         """SDL2/Cocoa synchronous property dispatch must not loop on resize."""
         script = textwrap.dedent("""
+            from types import SimpleNamespace
+            import psx.renderers.kivy.kivy as module
             from psx.renderers.kivy.kivy import KivyRenderer
 
+            scheduled = []
+            module.Clock = SimpleNamespace(schedule_once=lambda cb, dt: scheduled.append(cb) or object())
             renderer = object.__new__(KivyRenderer)
-            window = object()
+            renderer._sfle_window_resize_event = None
+            renderer._sfle_resize_epoch = 1
+            window = SimpleNamespace(size=(800, 600))
             class Root:
                 parent = window
                 def __init__(self):
@@ -80,9 +86,14 @@ class KivyRendererSubprocessTests(unittest.TestCase):
             root = Root()
             renderer._sfle_watched_widget = root
             renderer._sfle_on_window_resize(window, 800, 600)
+            assert root.size == (200, 150)
+            scheduled.pop(0)(0)
             assert root.size == (800, 600)
             assert root.writes == 1
             renderer._sfle_on_window_resize(window, 800, 600)
+            assert len(scheduled) == 1
+            scheduled.pop(0)(0)
+            assert not scheduled
             assert root.writes == 1
         """)
         environment = dict(os.environ)
@@ -94,9 +105,15 @@ class KivyRendererSubprocessTests(unittest.TestCase):
 
     def test_retina_resize_prefers_drawable_window_over_system_event_size(self) -> None:
         script = textwrap.dedent("""
+            from types import SimpleNamespace
+            import psx.renderers.kivy.kivy as module
             from psx.renderers.kivy.kivy import KivyRenderer
 
+            scheduled = []
+            module.Clock = SimpleNamespace(schedule_once=lambda cb, dt: scheduled.append(cb) or object())
             renderer = object.__new__(KivyRenderer)
+            renderer._sfle_window_resize_event = None
+            renderer._sfle_resize_epoch = 1
             class Window:
                 size = (1600, 1200)
                 system_size = (800, 600)
@@ -107,10 +124,13 @@ class KivyRendererSubprocessTests(unittest.TestCase):
             root = Root()
             renderer._sfle_watched_widget = root
             renderer._sfle_on_window_resize(window, 800, 600)
+            assert root.size == (800, 600)
+            scheduled.pop(0)(0)
             assert root.size == (1600, 1200), root.size
             # Repeated Cocoa event with unchanged drawable dimensions must
             # not resize the root or reenter the SFLE transaction.
             renderer._sfle_on_window_resize(window, 800, 600)
+            scheduled.pop(0)(0)
             assert root.size == (1600, 1200), root.size
         """)
         environment = dict(os.environ)
@@ -433,6 +453,16 @@ class KivyRendererSubprocessTests(unittest.TestCase):
                 handle = KivyHandle(kind, widget, {})
                 renderer.apply_css(handle, aligned)
                 assert widget.halign == "right", (kind, widget.halign)
+                if kind == "Link":
+                    # Links keep an unconstrained glyph texture; Cinnamon
+                    # positions their intrinsic box within the text line.
+                    assert tuple(widget.text_size) == (None, None)
+                    widget.width = 200
+                    assert tuple(widget.text_size) == (None, None)
+                    renderer.apply_css(handle, empty)
+                    assert tuple(widget.text_size) == original
+                    assert not hasattr(widget, "_psx_css_text_align_resize")
+                    continue
                 # Qt currently certifies CSS internal padding only for
                 # Button; Select and Link preserve their native padding.
                 inset = 20 if kind == "Button" else 0

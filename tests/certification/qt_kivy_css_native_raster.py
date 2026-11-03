@@ -196,8 +196,11 @@ def compare(out: Path, name: str, background: str, fill: str, border: str,
     for point in corners:
         assert _category(qt.getpixel(point), reference) == 0, (point, qt.getpixel(point))
         assert _category(kv.getpixel(point), reference) == 0, (point, kv.getpixel(point))
-    categories_qt = [_category(pixel, reference) for pixel in qt.getdata()]
-    categories_kivy = [_category(pixel, reference) for pixel in kv.getdata()]
+    # Pillow 14 removes getdata(); retain compatibility with Pillow 10–13.
+    categories_qt = [_category(pixel, reference) for pixel in
+                     getattr(qt, "get_flattened_data", qt.getdata)()]
+    categories_kivy = [_category(pixel, reference) for pixel in
+                       getattr(kv, "get_flattened_data", kv.getdata)()]
     disagreement = sum(a != b for a, b in zip(categories_qt, categories_kivy))
     # Compare only the authored card's corner regions; differing system window
     # decorations are not part of the captured client rectangle.

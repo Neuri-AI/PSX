@@ -44,6 +44,7 @@ def commit_qt_sfle(renderer: "QtRenderer", root: "MountedInstance") -> None:
     """Measure/compute/validate/apply/read back one current mounted Qt tree."""
     if renderer._sfle_constraints is None:
         return
+    from psx.core.structural_binding import DormantWidgetIdentity
     if renderer._qtcore.QThread.currentThread() != renderer.application.thread():
         raise SFLEError(DiagnosticCode.UNSUPPORTED_MEASUREMENT,
                         "Qt SFLE geometry commit requires the QApplication UI thread.")
@@ -66,16 +67,19 @@ def commit_qt_sfle(renderer: "QtRenderer", root: "MountedInstance") -> None:
                     raise SFLEError(DiagnosticCode.INVALID_TREE, "Component must have one rendered root.")
                 components[id(instance.node)] = instance.children[0].node
             else:
-                if instance.handle is None:
+                from psx.core.structural_binding import layout_binding
+                binding = layout_binding(instance)
+                if binding is None:
                     raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT, "Qt handle missing.")
                 if id(instance.node) in handles:
                     raise SFLEError(DiagnosticCode.INVALID_TREE, "Duplicate mounted VNode.")
-                handles[id(instance.node)] = instance.handle
+                handles[id(instance.node)] = binding
             mounted_stamp.append(mounted_structural_token(instance))
             for child in instance.children:
                 gather(child)
 
-        gather(root)
+        from psx.layout.projection.mounted_layout_index import mounted_layout_index
+        components, handles, mounted_stamp = mounted_layout_index(renderer, root)
         reuse = getattr(renderer, "_sfle_structural_snapshot_reuse", None)
         if reuse is None:
             reuse = NativeStructuralSnapshotReuse()
@@ -108,6 +112,8 @@ def commit_qt_sfle(renderer: "QtRenderer", root: "MountedInstance") -> None:
         prior_signature = getattr(renderer, "_sfle_committed_signatures", None)
         # A Qt layout must never be allowed to override SFLE rectangles.
         for node_id, handle in bindings.items():
+            if isinstance(handle.widget, DormantWidgetIdentity):
+                continue
             # An SFLE leaf may use a toolkit layout for its own internal
             # chrome (SpinBox minus/editor/plus), never for declarative
             # PSX child placement. Container layouts still fail closed.
@@ -134,11 +140,21 @@ def commit_qt_sfle(renderer: "QtRenderer", root: "MountedInstance") -> None:
             if node.parent_id is None:
                 continue
             child, parent = bindings[node.node_id].widget, bindings[node.parent_id].widget
+            if isinstance(child, DormantWidgetIdentity):
+                continue
             owner = (
                 parent._psx_content if getattr(parent, "_psx_sfle_scroll", False)
                 else parent
             )
-            if child.parentWidget() is not owner:
+            # A certified P2 subtree can be physically detached while
+            # retaining its logical instance and Cinnamon geometry.  It is
+            # reattached by the viewport materializer before a P0/P1 native
+            # commit; only that explicit dormant receipt may skip the normal
+            # Qt parentage proof.
+            dormant = id(child) in getattr(
+                renderer, "_psx_native_dormant_widget_ids", frozenset(),
+            )
+            if child.parentWidget() is not owner and not dormant:
                 raise SFLEError(DiagnosticCode.INVALID_TREE,
                                 "Actual Qt parent does not match SFLE parent.", node.node_id)
 
@@ -195,6 +211,9 @@ def commit_qt_sfle(renderer: "QtRenderer", root: "MountedInstance") -> None:
             textarea_ids=textarea_ids, text_ids=text_ids, image_ids=image_ids,
             spacer_ids=spacer_ids, divider_nodes=divider_nodes,
         )
+        from psx.layout.runtime.structural_text_probe import StructuralMeasurementSource
+        source = StructuralMeasurementSource(
+            renderer, source, leaf_widgets, prepared.identities, "qt")
         if not source.is_ui_thread():
             raise SFLEError(DiagnosticCode.UNSUPPORTED_MEASUREMENT,
                             "Qt intrinsic measurement requires widget owner thread.")
@@ -202,6 +221,8 @@ def commit_qt_sfle(renderer: "QtRenderer", root: "MountedInstance") -> None:
         changed_word_wrap = False
         for node_id in text_ids:
             widget = leaf_widgets[node_id]
+            if isinstance(widget, DormantWidgetIdentity):
+                continue
             # The enclosing semantic inline run owns word wrapping. Qt's
             # QLabel.wordWrap splits paths at '/', even when the parent line
             # has space; a Text leaf representing one measured word is atomic.
@@ -230,7 +251,8 @@ def commit_qt_sfle(renderer: "QtRenderer", root: "MountedInstance") -> None:
                 node_id=node_id, generation=generation,
                 measure=lambda node_id=node_id: source.measure(MeasurementRequest(
                     node_id, renderer._sfle_constraints, generation, generation)),
-                viewport_independent=not bindings[node_id].widget.hasHeightForWidth(),
+                viewport_independent=(not isinstance(bindings[node_id].widget, DormantWidgetIdentity)
+                                      and not bindings[node_id].widget.hasHeightForWidth()),
             ))
             if renderer._sfle_generation != generation:
                 raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT, "Stale Qt measurement generation.")
@@ -263,7 +285,9 @@ def commit_qt_sfle(renderer: "QtRenderer", root: "MountedInstance") -> None:
             for node_id, vnode in prepared.identities
             if node_id in automatic and vnode.kind is NodeKind.HOST
             and (
-                (vnode.type == "Text" and bindings[node_id].widget.hasHeightForWidth())
+                (vnode.type == "Text" and (
+                    isinstance(bindings[node_id].widget, DormantWidgetIdentity)
+                    or bindings[node_id].widget.hasHeightForWidth()))
                 or vnode.type == "TextArea"
             )
         }
@@ -425,6 +449,10 @@ def commit_qt_sfle(renderer: "QtRenderer", root: "MountedInstance") -> None:
             renderer, prepared, snapshot, result, bindings,
             "qt", invalidation_epoch,
         )
+        from psx.core.native_materialization import synchronize_native_materialization
+        native_flow_plan = synchronize_native_materialization(
+            renderer, root, bindings, native_flow_plan,
+        )
         deferred_native_ids = native_flow_plan.deferred_ids
         before = {}
         for node_id, handle in bindings.items():
@@ -568,6 +596,10 @@ def commit_qt_sfle(renderer: "QtRenderer", root: "MountedInstance") -> None:
         native_round.publish()
         mixed_grid.accept_intrinsic()
         mixed_grid.accept_viewport()
+        from psx.core.native_materialization import finalize_native_materialization
+        native_flow_plan = finalize_native_materialization(
+            renderer, root, bindings, native_flow_plan,
+        )
         native_flow_plan.accept()
         # Exact geometry and solved CSS receipts become reusable only after
         # every P2 workset has passed its native acceptance checks.

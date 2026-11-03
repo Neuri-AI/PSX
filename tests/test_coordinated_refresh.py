@@ -367,9 +367,8 @@ def test_rejected_syntax_edit_can_be_corrected_without_restarting(tmp_path, monk
     assert reconciler.calls == [reconciler.root]
 
 
-def test_root_host_switch_requests_restart_before_native_teardown():
+def test_root_host_switch_preserves_logical_boundary_and_replaces_native_host():
     from psx import Flex, Text, component, psx
-    from psx.core.errors import RootHostTransitionRequiresRestart
     from psx.core.reconcile import Reconciler
     from psx.renderers.headless import HeadlessRenderer
     from psx.layout.fallback.engine import PythonLayoutEngine
@@ -393,9 +392,12 @@ def test_root_host_switch_requests_restart_before_native_teardown():
         original = mounted.native_handle()
         current[0] = Flex(Text("After"), direction="column")
         reconciler._coordinated_remount = True
-        with pytest.raises(RootHostTransitionRequiresRestart):
-            reconciler.try_reevaluate(mounted)
-        assert mounted.native_handle() is original
+        assert reconciler.try_reevaluate(mounted)
+        assert reconciler.root is mounted
+        assert not mounted.disposed
+        assert mounted.native_handle() is not original
+        assert original.destroyed
+        assert mounted.native_handle().type == "Flex"
         assert not mounted.children[0].disposed
     finally:
         reconciler._coordinated_remount = False
@@ -410,13 +412,14 @@ def test_fast_refresh_swaps_div_and_flex_hosts_without_disposing_component():
     from psx.layout.contracts.model import AvailableSize, IntrinsicSizes, LayoutConstraints
 
     use_flex = [False]
+    block_view = psx("<div><p>Count</p></div>")
 
     @component
     def root():
         count, _ = use_state(7)
         if use_flex[0]:
             return Flex(Text(str(count)), direction="column")
-        return psx("<div><p>Count</p></div>")
+        return block_view
 
     renderer = HeadlessRenderer(
         sfle_constraints=LayoutConstraints(
@@ -434,12 +437,12 @@ def test_fast_refresh_swaps_div_and_flex_hosts_without_disposing_component():
         assert reconciler.root is boundary
         assert not boundary.disposed
         assert boundary.native_handle() is not first
-        assert boundary.native_handle().node_type == "Flex"
+        assert boundary.native_handle().type == "Flex"
         assert boundary.native_handle().children[0].props["value"] == "7"
         use_flex[0] = False
         assert reconciler.try_reevaluate(boundary)
         assert reconciler.root is boundary
-        assert boundary.native_handle().node_type == "div"
+        assert boundary.native_handle().type == "div"
     finally:
         reconciler._coordinated_remount = False
         reconciler.unmount()

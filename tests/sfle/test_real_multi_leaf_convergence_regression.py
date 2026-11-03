@@ -23,7 +23,7 @@ def _style(props):
     )
 
 
-def test_snapshot():
+def convergence_snapshot():
     return LayoutInput(
         1, 27, WritingDirection.LTR,
         LayoutConstraints(AvailableSize(200, True), AvailableSize(60, True)),
@@ -54,7 +54,7 @@ def assert_real_engine_remeasurement_converges(engine):
         return IntrinsicSizes(0, preferred, 20, 20, preferred, 20)
 
     result = compute_with_width_measurements(
-        test_snapshot(),
+        convergence_snapshot(),
         engine.compute,
         measure,
         compute_provisional=engine.compute_provisional,

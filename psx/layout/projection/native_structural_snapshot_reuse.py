@@ -23,7 +23,11 @@ def mounted_structural_token(instance):
     """Identity-only token: never hash or stringify an entire CSS subtree."""
     node = instance.node
     return (
-        id(instance), id(node), id(instance.handle),
+        # Native resources may be retired/recreated while the logical tree
+        # and CSS projection stay identical. Native measurements and geometry
+        # bindings have separate epoch/identity fences; handle incarnation is
+        # not part of the declarative structure.
+        id(instance), id(node),
         id(node.props), id(node.css_computed), id(node.css_stylesheet),
         id(node.css_source), id(node.markup_meta),
         tuple(id(child) for child in instance.children),

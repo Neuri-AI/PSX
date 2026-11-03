@@ -21,6 +21,18 @@ class RustLayoutEngine:
     """PyO3-backed engine that passes only validated, immutable snapshots."""
 
     backend_name = "rust"
+    _validates_grid_input = True
+
+    def compute_uniform_grid_template(self, span, count, width, column_gap, row_gap, height):
+        """Optional indexed-track transport for certified structural receipts."""
+        method = getattr(self._module, "compute_uniform_grid_template", None)
+        if not callable(method):
+            return None
+        from psx.layout.grid.contracts import GridPackingError
+        try:
+            return method(span, count, width, column_gap, row_gap, height, False)
+        except (TypeError, ValueError, OverflowError) as exc:
+            raise GridPackingError(f"Cinnamon uniform Grid projection rejected: {exc}") from exc
 
     def __init__(self, module: ModuleType) -> None:
         self._module = module
@@ -193,6 +205,21 @@ class RustLayoutEngine:
             slots, content_width, column_gap, row_gap,
             item_heights, constraints, rtl=rtl,
         )
+        compact = getattr(self._module, "compute_grid_compact", None)
+        if callable(compact):
+            try:
+                rows = compact(
+                    [(s.id, None if s.span == "auto" else s.span, s.offset, s.order)
+                     for s in slots],
+                    content_width, column_gap, row_gap,
+                    list((item_heights or {}).items()),
+                    [(key, value.min_width, value.max_width, value.min_height, value.max_height)
+                     for key, value in (constraints or {}).items()],
+                    rtl,
+                )
+                return tuple(tuple(GridConstrainedRect(*cell) for cell in row) for row in rows)
+            except (TypeError, ValueError, KeyError, OverflowError) as exc:
+                raise GridPackingError(f"Cinnamon Rust Grid result is invalid: {exc}") from exc
         method = getattr(self._module, "compute_grid_json", None)
         if not callable(method):
             from psx.layout.contracts.errors import SFLEError, DiagnosticCode

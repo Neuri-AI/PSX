@@ -412,6 +412,7 @@ class KivyRenderer:
         self._sfle_window_resize_event = None
         self._sfle_resize_epoch = 0
         self._sfle_resize_error: Exception | None = None
+        self._psx_reconcile_offscreen_at_idle = False
         self._sfle_textarea_event = None
         self._sfle_textarea_epoch = 0
         self._sfle_textarea_error: Exception | None = None
@@ -487,8 +488,11 @@ class KivyRenderer:
         if self._sfle_resource_poll_scheduled:
             return
         root = self._sfle_mounted_root
+        owner = getattr(self, "_psx_reconciler", None)
+        native_instances = (owner._native_instances.values()
+                            if owner is not None and owner.root is root else None)
         if (root is None or root.disposed
-                or not self._sfle_image_resource_watch.sync(root)):
+                or not self._sfle_image_resource_watch.sync(root, instances=native_instances)):
             return
         self._sfle_resource_poll_scheduled = True
         epoch = self._sfle_invalidation_lifetime
@@ -501,6 +505,11 @@ class KivyRenderer:
         The mounted instance is reused; the existing SFLE transaction remains
         the only writer. Teardown invalidates queued work by epoch.
         """
+        if widget_id in getattr(self, "_psx_native_retiring_widget_ids", ()):
+            return
+        if reason == "font" and widget_id in getattr(
+                self, "_psx_native_activation_widget_ids", ()):
+            return
         from psx.layout.runtime.native_measurement_invalidation import MeasurementInvalidations
 
         if self._sfle_constraints is None:
@@ -1679,7 +1688,7 @@ class KivyRenderer:
         container, item = _handle(parent), _handle(child)
         if item in container.children:
             container.children.remove(item)
-        if container.node_type in ("Grid", "GridItem"):
+        if container.node_type in ("Grid", "GridItem") or container.node_type in FORMATTING_TAGS:
             if item.widget.parent is container.widget:
                 container.widget.remove_widget(item.widget)
             return

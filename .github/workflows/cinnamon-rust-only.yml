@@ -8,7 +8,7 @@ on:
       - 'psx/renderers/**'
       - 'tests/architecture/**'
       - 'scripts/check_cinnamon_fallback_edges.py'
-      - 'rust/sfle-core/**'
+      - 'rust/cinnamon-core/**'
       - '.github/workflows/cinnamon-rust-only.yml'
   pull_request:
     paths:
@@ -16,7 +16,7 @@ on:
       - 'psx/renderers/**'
       - 'tests/architecture/**'
       - 'scripts/check_cinnamon_fallback_edges.py'
-      - 'rust/sfle-core/**'
+      - 'rust/cinnamon-core/**'
       - '.github/workflows/cinnamon-rust-only.yml'
 
 permissions:
@@ -59,7 +59,7 @@ jobs:
           python -m pip install -e '.[pyside6,kivy]' pytest 'maturin>=1.8,<2'
       - name: Build and install REAL Rust Cinnamon wheel
         run: |
-          maturin build --release --manifest-path rust/sfle-core/Cargo.toml --out /tmp/cinnamon-rust-only
+          maturin build --release --manifest-path rust/cinnamon-core/Cargo.toml --out /tmp/cinnamon-rust-only
           python -m pip install --no-deps /tmp/cinnamon-rust-only/*.whl
           python -c "import _sfle_native as n; assert n.schema_version()==1"
       - name: Physically remove fallback and certify Rust independently

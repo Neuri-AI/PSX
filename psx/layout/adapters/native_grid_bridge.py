@@ -82,14 +82,17 @@ def commit_native_grid(renderer: object, root: object, *, backend: GridCommitBac
                     raise SFLEError(DiagnosticCode.INVALID_TREE, "Grid component needs one root.")
                 components[id(instance.node)] = instance.children[0].node
             else:
-                if instance.handle is None or id(instance.node) in handles:
+                from psx.core.structural_binding import layout_binding
+                binding = layout_binding(instance)
+                if binding is None or id(instance.node) in handles:
                     raise SFLEError(DiagnosticCode.INVALID_TREE, "Missing or reused Grid handle.")
-                handles[id(instance.node)] = instance.handle
+                handles[id(instance.node)] = binding
             mounted_stamp.append(mounted_structural_token(instance))
             for child in instance.children:
                 gather(child)
 
-        gather(root)
+        from psx.layout.projection.mounted_layout_index import mounted_layout_index
+        components, handles, mounted_stamp = mounted_layout_index(renderer, root)
         structural = getattr(renderer, "_sfle_structural_snapshot_reuse", None)
         if structural is None:
             structural = NativeStructuralSnapshotReuse()
@@ -112,6 +115,15 @@ def commit_native_grid(renderer: object, root: object, *, backend: GridCommitBac
                 "Grid", "Flex", "Scroll", *FORMATTING_TAGS,
             )
             for child in grid.effective_children
+        )
+        # The composition port also handles a primitive GridItem through
+        # structural text metrics. Avoid promoting every initially suspended
+        # leaf merely because this Grid does not contain HTML/Flex wrappers.
+        from psx.core.structural_binding import StructuralBinding
+        nested_content = nested_content or any(
+            isinstance(binding, StructuralBinding)
+            and binding.instance.native_suspended
+            for binding in handles.values()
         )
         # Look up exact previously committed geometry *before* any native
         # intrinsic measurements, recursive Cinnamon composition or Grid
@@ -141,6 +153,7 @@ def commit_native_grid(renderer: object, root: object, *, backend: GridCommitBac
         # a Grid nested inside a block/Flex root. The immutable last-accepted
         # geometry is only a provisional hint, never current-width truth.
         early_deferred = {}
+        reusable_flows = {}
         if (reused is None and nested_content
                 and getattr(renderer, "_psx_in_native_viewport_resize", False)):
             from psx.layout.grid.grid_early_viewport import (
@@ -152,8 +165,17 @@ def commit_native_grid(renderer: object, root: object, *, backend: GridCommitBac
                     normalized, grid, geometry_cache.latest(grid_id),
                     getattr(renderer, "_psx_grid_viewport_workset", None),
                     viewport_height=height, epoch=invalidation_epoch,
-                    static_plan=early_plan,
+                    static_plan=early_plan, content_width=float(width),
                 )
+            from psx.layout.grid.grid_early_viewport import (
+                select_wider_unwrapped_flows,
+            )
+            reusable_flows = select_wider_unwrapped_flows(
+                grid, geometry_cache.latest(grid_id), content_width=float(width),
+                static_plan=early_plan,
+            )
+            if len(reusable_flows) == len(grid.effective_children):
+                geometry_cache.exact_unwrapped_groups += len(reusable_flows)
         composed_heights = None
         if reused is not None:
             composed = reused
@@ -181,7 +203,13 @@ def commit_native_grid(renderer: object, root: object, *, backend: GridCommitBac
                 renderer.root.update_idletasks()
 
             def measure_leaf(identifier, node, allocated_width):
-                widget = handles[id(node.source)].widget
+                from psx.layout.runtime.structural_text_probe import measure_without_native_handle
+                intrinsic = measure_without_native_handle(
+                    renderer, node, handles, allocated_width, backend.value)
+                if intrinsic is not None:
+                    return intrinsic
+                from psx.core.structural_binding import materialize_for_measurement
+                widget = materialize_for_measurement(renderer, node, handles)
                 if backend is GridCommitBackend.QT:
                     from psx.renderers.qt.cinnamon_qt_measurement import QtMeasurementSource
                     native_source = QtMeasurementSource(
@@ -206,6 +234,10 @@ def commit_native_grid(renderer: object, root: object, *, backend: GridCommitBac
                     lambda: native_source.measure_width(identifier, allocated_width),
                 )
 
+            # This port has no independent unwrapped glyph receipt. Retain
+            # its complete measurement path rather than treating a clamped
+            # native preferred width as proof of width-invariant height.
+            measure_leaf.unwrapped = False
             composed = prepare_composed_grid(
                 grid, content_width=float(width), generation=generation,
                 current_generation=renderer._sfle_generation,
@@ -219,9 +251,10 @@ def commit_native_grid(renderer: object, root: object, *, backend: GridCommitBac
                              if backend is GridCommitBackend.KIVY else 1.0),
                 kivy_text_basis=(backend is GridCommitBackend.KIVY),
                 deferred_flows=early_deferred,
+                reusable_flows=reusable_flows,
             )
             if early_deferred:
-                geometry_cache.early_provisional_groups += len(early_deferred)
+                geometry_cache.early_provisional_groups += len(composed.provisional_ids)
             prepared = composed.prepared
             batch, commit_widgets, composed_heights = compose_geometry_batch(
                 composed, handles={identity: handle.widget
@@ -232,6 +265,10 @@ def commit_native_grid(renderer: object, root: object, *, backend: GridCommitBac
             source = SimpleNamespace(
                 is_ui_thread=lambda: get_ident() == renderer._sfle_owner_thread)
         else:
+            from psx.core.structural_binding import materialize_for_measurement
+            for item in grid.effective_children:
+                materialize_for_measurement(
+                    renderer, item.effective_children[0], handles)
             ids = tuple(path_identity(child.path) for child in grid.effective_children)
             item_handles = {path_identity(child.path): handles[id(child.source)]
                             for child in grid.effective_children}
@@ -316,19 +353,28 @@ def commit_native_grid(renderer: object, root: object, *, backend: GridCommitBac
         if workset is None:
             workset = GridViewportWorkset()
             renderer._psx_grid_viewport_workset = workset
-        item_nodes = {
-            path_identity(item.path): item for item in grid.effective_children
-        }
-        safe_ids = frozenset(
-            node_id for node_id, item in item_nodes.items()
-            if subtree_is_safe_for_root_culling(item)
-        )
+        safe_ids = geometry_cache.viewport_safe_items(grid_id, grid)
         deferred_ids = workset.plan(
             root_ids=root_ids, batch=batch, widgets=commit_widgets,
             viewport_height=float(height), epoch=invalidation_epoch,
             backend=backend, safe_ids=safe_ids,
             reconcile=getattr(renderer, "_psx_resize_priority", None),
         )
+        # Grid is the benchmark-critical path: use the same reversible native
+        # attachment lifecycle as ordinary Flow cards.  Cinnamon still owns
+        # every track and item rectangle; this only removes certified P2 item
+        # roots from their toolkit parent after a successful transaction.
+        from psx.layout.adapters.native_flow_viewport import FlowViewportPlan
+        from psx.core.native_materialization import synchronize_native_materialization
+        materialization_plan = FlowViewportPlan(
+            workset, root_ids, tuple(batch), dict(commit_widgets), float(height),
+            invalidation_epoch, backend.value, frozenset(deferred_ids),
+            release_native=True,
+        )
+        materialization_plan = synchronize_native_materialization(
+            renderer, root, commit_widgets, materialization_plan,
+        )
+        deferred_ids = materialization_plan.deferred_ids
         if early_deferred:
             groups = GridViewportWorkset._groups(root_ids, batch, commit_widgets)
             for item_id in early_deferred:
@@ -350,6 +396,7 @@ def commit_native_grid(renderer: object, root: object, *, backend: GridCommitBac
         # No native getter, setter or rollback write for deferred widgets.
         from psx.layout.grid.mixed_grid_native import MountedMixedGrid
         rollback_scope = MountedMixedGrid(renderer, normalized, handles, backend, generation)
+        rollback_scope._snapshot_widgets = tuple(active_widgets.values())
         previous_descendants = rollback_scope.snapshot(
             only_widget_ids={id(widget) for widget in active_widgets.values()}
         )
@@ -439,11 +486,12 @@ def commit_native_grid(renderer: object, root: object, *, backend: GridCommitBac
         if (renderer._sfle_generation != generation
                 or renderer._sfle_measurement_invalidations.epoch != invalidation_epoch):
             raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT, "Grid invalidated before viewport acceptance.")
-        workset.accept(
-            root_ids=root_ids, batch=batch, widgets=commit_widgets,
-            viewport_height=float(height), epoch=invalidation_epoch,
-            backend=backend, skipped=deferred_ids,
+        from psx.core.native_materialization import finalize_native_materialization
+        materialization_plan = finalize_native_materialization(
+            renderer, root, commit_widgets, materialization_plan,
         )
+        deferred_ids = materialization_plan.deferred_ids
+        materialization_plan.accept()
         renderer.grid_result = (prepared, receipt)
         # A root Grid uses the same idle P2 reconciliation as a mixed Grid.
         # Publish this flag only after a successful native readback, so the

@@ -109,6 +109,36 @@ def test_lru_is_bounded_across_responsive_widths():
     assert cache.lookup(key, grid, 640, viewport(640), 4) is not None
 
 
+def test_shared_width_pattern_preserves_partial_final_row_allocations():
+    from psx.core.grid_contract import GRID_BREAKPOINTS
+    from psx.layout.grid.grid_native_measurement import GridStructureReuse, measure_grid_native
+    from psx.layout.runtime.native_measurement import NativeMeasurementPort
+
+    for count in (1, 3, 5, 7, 9):
+        grid = original_grid(count)
+        structure = GridStructureReuse().prepare(grid, 700, GRID_BREAKPOINTS, 1)
+
+        class Source:
+            def __init__(self):
+                self.reads = []
+
+            def port(self):
+                return NativeMeasurementPort(lambda: True, lambda request: None)
+
+            def measure_width(self, identifier, width):
+                self.reads.append((identifier, width))
+                return IntrinsicSizes(0, width, 0, 20, width, 20)
+
+        native, full = Source(), Source()
+        args = dict(grid=grid, content_width=700, mounted_ids=structure.ids,
+                    revisions={key: 1 for key in structure.ids}, generation=1,
+                    current_generation=1, engine=PythonLayoutEngine())
+        sparse = measure_grid_native(**args, source=native, structure=structure)
+        exact = measure_grid_native(**args, source=full)
+        assert native.reads == full.reads
+        assert sparse.placements == exact.placements
+
+
 def test_flattened_grid_batch_has_live_widget_identity_fence():
     from types import SimpleNamespace
     from psx.layout.grid.grid_native_plan import GridNativePlacement

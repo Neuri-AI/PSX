@@ -38,8 +38,11 @@ def test_webview_custom_markup_preserves_identity_events_refs_and_cleanup() -> N
     assert second.handle is first.handle
     assert ref.current is widget
     assert widget.web_view.url().toString() == "https://example.test/next"
+    # Setting the URL can itself emit a native navigation notification. Check
+    # rebinding independently of notifications produced during that update.
+    callbacks.clear()
     widget.web_view.urlChanged.emit(QUrl("https://example.test/second"))
-    assert callbacks == ["https://example.test/first", "new:https://example.test/second"]
+    assert callbacks == ["new:https://example.test/second"]
 
     reconciler.unmount()
     assert ref.current is None

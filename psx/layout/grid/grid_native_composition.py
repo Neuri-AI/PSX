@@ -37,6 +37,13 @@ class ComposedFlow:
     result: object
     content_height: float
     nested_grids: dict[str, "ComposedGrid"]
+    # ``None`` means that this Flow needs normal width-dependent measurement.
+    # Otherwise this is the minimum outer width at which every terminal leaf
+    # is proven not to wrap.  Any normal-block layout at or above that width
+    # has the same accepted intrinsic height.
+    unwrapped_at_width: float | None = None
+    minimum_content_height: float = 0.0
+    intrinsic_receipts: tuple = ()
 
 
 
@@ -60,9 +67,13 @@ class FlowBlueprintReuse:
         self._entries = OrderedDict()
         from psx.layout.grid.grid_solved_reuse import SolvedTextSubtreeReuse
         self.solved = SolvedTextSubtreeReuse(limit=solved_limit)
+        from psx.layout.grid.grid_native_measurement import GridStructureReuse
+        self.grids = GridStructureReuse()
 
     def clear(self):
         self._entries.clear()
+        self.solved.clear()
+        self.grids.clear()
 
     def prepare(self, flow, constraints, generation, viewport_constraints, epoch, pixel_scale=1.0):
         # Include the actual normalized descendants, not just a parent
@@ -454,9 +465,106 @@ def prepare_composed_flow(flow, *, width, generation, measure_leaf, engine,
                 ),
             )
     root_id = normalized.nodes[0].node_id
+    solved_boxes = dict(solved.boxes)
+    # Keep a deliberately narrow proof: terminal leaves must all have a real
+    # definite-width probe whose preferred width fits that probe, and the
+    # subtree must remain ordinary block formatting.  This excludes Flex,
+    # nested Grid and Kivy's unconstrained text basis.  It is enough for the
+    # common card case while failing closed for every dynamic layout.
+    unwrapped_at_width = None
+    if (normalized.nodes[0].component in FORMATTING_TAGS
+            and not nested_grids and measured_leaves):
+        probes = {}
+        intrinsic_by_id = {}
+        unwrapped = getattr(measure_leaf, "unwrapped", None)
+        natural_metrics = {}
+        for (identifier, probe_width), intrinsic in tuple(measured_leaves.items()):
+            if not isinstance(probe_width, (int, float)) or probe_width < 0:
+                continue
+            if unwrapped is False:
+                continue
+            if callable(unwrapped):
+                if identifier not in natural_metrics:
+                    natural_metrics[identifier] = unwrapped(identifier, identities[identifier])
+                natural = natural_metrics[identifier]
+                if natural.preferred_height != intrinsic.preferred_height:
+                    continue
+                intrinsic = natural
+            if intrinsic.preferred_width <= probe_width:
+                prior = probes.get(identifier)
+                probes[identifier] = (probe_width if prior is None
+                                      else min(prior, probe_width))
+                intrinsic_by_id[identifier] = intrinsic
+        # ``LayoutNode`` is a flat snapshot (parent ids, not child lists).
+        # Measurements are emitted only for terminal native leaves, which is
+        # exactly the set the proof needs to cover.
+        terminal_ids = {receipt.node_id for receipt in measurements}
+        if terminal_ids and terminal_ids <= set(probes):
+            # Turn terminal content widths into a certificate for the outer
+            # Flow.  Only concrete px edges are admitted; percentage/auto
+            # edges, margins and unknown CSS leave this optimization off.
+            from psx.layout.contracts.lengths import Length, LengthKind
+            nodes_by_id = {node.node_id: node for node in normalized.nodes}
+
+            def px_edge(style, name):
+                value = style.get(name)
+                if value is None:
+                    return 0.0
+                if isinstance(value, Length) and value.kind is LengthKind.PX:
+                    return float(value.value)
+                if isinstance(value, (int, float)) and not isinstance(value, bool):
+                    return float(value)
+                return None
+
+            required = 0.0
+            certified = True
+            for identifier in terminal_ids:
+                inset = 0.0
+                current = nodes_by_id.get(identifier)
+                while current is not None:
+                    style = dict(current.style)
+                    for group in ("padding", "border"):
+                        for side in ("left", "right"):
+                            edge = px_edge(style, f"layout_{group}_{side}")
+                            if edge is None or edge < 0:
+                                certified = False
+                                break
+                            inset += edge
+                        if not certified:
+                            break
+                    # Margins alter the available/reference width in ways
+                    # that this compact receipt intentionally does not model.
+                    if certified:
+                        for side in ("left", "right"):
+                            name = f"layout_margin_{side}"
+                            if name in style:
+                                margin = px_edge(style, name)
+                                if margin is None or margin != 0.0:
+                                    certified = False
+                                    break
+                    if not certified:
+                        break
+                    current = nodes_by_id.get(current.parent_id)
+                if not certified:
+                    break
+                required = max(required, intrinsic_by_id[identifier].preferred_width + inset)
+            if certified:
+                # Native probes certify the terminal text's unwrapped height.
+                # Adding ancestor edges can put the *outer* threshold above
+                # today's Flow width. Retain that future-width certificate;
+                # callers still require the new allocation to meet it. Losing
+                # it here made thousands of already measured short labels
+                # permanently ineligible after a narrow initial window.
+                unwrapped_at_width = float(required)
     composition = ComposedFlow(
-        prepared, solved, dict(solved.boxes)[root_id].border.height,
-        nested_grids,
+        prepared, solved, solved_boxes[root_id].border.height,
+        nested_grids, unwrapped_at_width,
+        max(0.0, solved_boxes[root_id].border.height - sum(
+            max(0.0, solved_boxes[receipt.node_id].border.height
+                - receipt.intrinsic.min_content_height)
+            for receipt in measurements
+        )) if not nested_grids else 0.0,
+        tuple(measurements),
     )
     if flow_reuse is not None:
         flow_reuse.solved.stage(
@@ -478,6 +586,14 @@ class ComposedGrid:
     # One or more offscreen Flow heights came from an older accepted
     # width. This result is temporary, not eligible for exact caching.
     provisional_ids: frozenset[str] = frozenset()
+    content_width: float = 0.0
+    # Track/item rectangles and extent are current-width exact, but these P2
+    # Flow detail receipts intentionally retain an older width. They can be
+    # cached structurally and must never reach a native setter until promoted.
+    native_deferred_flows: frozenset[str] = frozenset()
+    # A compressed Cinnamon track receipt can expose its native workset
+    # directly while retaining indexed geometry for every logical GridItem.
+    viewport_roots: tuple[str, ...] | None = None
 
 
 def prepare_composed_grid(
@@ -496,6 +612,7 @@ def prepare_composed_grid(
     pixel_scale: float = 1.0,
     kivy_text_basis: bool = False,
     deferred_flows: Mapping[str, ComposedFlow] | None = None,
+    reusable_flows: Mapping[str, ComposedFlow] | None = None,
 ) -> ComposedGrid:
     """Measure nested Grid children bottom-up using parent-allocated widths.
 
@@ -507,7 +624,9 @@ def prepare_composed_grid(
         raise GridPackingError("Nested composition requires an explicit Grid host.")
     if not is_ui_thread():
         raise GridPackingError("Grid composition requires the renderer UI thread.")
-    participants = grid.effective_children
+    structure = (flow_reuse.grids.prepare(grid, content_width, breakpoints, pixel_scale)
+                 if flow_reuse is not None else None)
+    participants = grid.effective_children if structure is None else ()
     child_by_id = {}
     for item in participants:
         if item.kind is not NodeKind.HOST or item.type != "GridItem":
@@ -516,10 +635,13 @@ def prepare_composed_grid(
         if len(effective) != 1:
             raise GridPackingError("GridItem requires exactly one content root.")
         child_by_id[path_identity(item.path)] = effective[0]
+    if structure is not None:
+        child_by_id = structure.children
     nested: dict[str, ComposedGrid] = {}
     nested_flex: dict[str, ComposedFlex] = {}
     nested_flow: dict[str, ComposedFlow] = {}
     nested_scroll: dict[str, tuple[ComposedFlow, float, float]] = {}
+    native_deferred_flows = set()
 
     class Source:
         def port(self):
@@ -535,16 +657,67 @@ def prepare_composed_grid(
 
         def measure_width(self, identifier, width):
             child = child_by_id[identifier]
+            if (deferred_flows is not None and identifier in deferred_flows
+                    and reusable_flows is not None and identifier in reusable_flows):
+                # Exact structural height is certified independently of
+                # detailed offscreen rectangles. Keep that immutable receipt
+                # instead of issuing a Cinnamon subtree solve per P2 card.
+                flow = reusable_flows[identifier]
+                nested_flow[identifier] = flow
+                native_deferred_flows.add(identifier)
+                return IntrinsicSizes(0, width, 0, flow.content_height,
+                                      width, flow.content_height)
             if deferred_flows is not None and identifier in deferred_flows:
                 # P2 was proven invisible even under a zero-height lower
                 # bound. Reusing the last native-certified Flow here avoids
                 # expensive native width probes and the Rust subtree solve.
                 # This height is deliberately NOT a current-width receipt.
-                from psx.layout.grid.grid_geometry_reuse import _rebind_flow
-                flow = _rebind_flow(deferred_flows[identifier], generation)
+                # P2 does not reach a native setter/readback in this
+                # transaction.  Rebinding thousands of immutable old-width
+                # Flow receipts solely to stamp ``generation`` allocates a
+                # full LayoutResult per card and recreates the O(total)
+                # resize cost we are avoiding.  The enclosing composition is
+                # marked provisional and cannot enter the exact cache.
+                flow = deferred_flows[identifier]
                 nested_flow[identifier] = flow
                 height = flow.content_height
                 return IntrinsicSizes(0, width, 0, height, width, height)
+            if reusable_flows is not None and identifier in reusable_flows:
+                # The native text metrics are width invariant within this
+                # certificate. Horizontal rectangles still belong to Cinnamon
+                # and must be recomputed at the new width before publication.
+                prior = reusable_flows[identifier]
+                constraints = LayoutConstraints(
+                    AvailableSize(width, True), AvailableSize(None, False))
+                prepared_flow = replace(
+                    prior.prepared,
+                    snapshot=replace(prior.prepared.snapshot,
+                                     generation=generation, constraints=constraints),
+                    viewport_constraints=viewport_constraints,
+                )
+                native_metrics = {receipt.node_id: receipt.intrinsic
+                                  for receipt in prior.intrinsic_receipts}
+                if native_metrics:
+                    snapshot = replace(
+                        prepared_flow.css_geometry_snapshot(pixel_scale=pixel_scale),
+                        measurements=tuple(replace(receipt, constraints=constraints,
+                                                   revision=generation)
+                                           for receipt in prior.intrinsic_receipts),
+                    )
+                    if getattr(engine, "backend_name", None) == "rust":
+                        solved_flow = engine.compute(snapshot)
+                    else:
+                        from psx.layout.fallback.measured_block_snapshot import compute_measured_block_snapshot
+                        solved_flow = compute_measured_block_snapshot(
+                            snapshot, flex_engine=engine,
+                            measure_width=lambda key, assigned: native_metrics[key],
+                        )
+                    flow_root = snapshot.nodes[0].node_id
+                    height = dict(solved_flow.boxes)[flow_root].border.height
+                    if height == prior.content_height:
+                        flow = replace(prior, prepared=prepared_flow, result=solved_flow)
+                        nested_flow[identifier] = flow
+                        return IntrinsicSizes(0, width, 0, height, width, height)
             if child.kind is NodeKind.HOST and child.type == "Scroll":
                 if engine is None:
                     raise GridPackingError("Scroll-in-Grid requires Cinnamon layout.")
@@ -691,18 +864,31 @@ def prepare_composed_grid(
             return measured
 
     ids = tuple(child_by_id)
+    # Structural receipts are not native measurements. Retain their height
+    # contribution directly instead of manufacturing a measurement request,
+    # constraints and MeasuredBox for every absent card on every resize.
+    retained_heights = {}
+    if structure is not None and deferred_flows:
+        for identifier, flow in deferred_flows.items():
+            nested_flow[identifier] = flow
+            retained_heights[identifier] = flow.content_height
+            if reusable_flows and identifier in reusable_flows:
+                native_deferred_flows.add(identifier)
     prepared = measure_grid_native(
         grid, content_width=content_width, source=Source(),
         mounted_ids=ids, revisions={identifier: generation for identifier in ids},
         generation=generation, current_generation=current_generation,
         allow_nested=True, breakpoints=breakpoints, pixel_scale=pixel_scale,
         engine=engine,
+        structure=structure,
+        structural_heights=retained_heights,
     )
     height = max((placement.y + placement.height for placement in prepared.placements),
                  default=0.0)
     return ComposedGrid(
         grid, prepared, nested, nested_flex, nested_flow, nested_scroll,
-        height, frozenset(deferred_flows or ()),
+        height, frozenset(deferred_flows or ()) - frozenset(native_deferred_flows),
+        float(content_width), frozenset(native_deferred_flows),
     )
 
 
@@ -711,6 +897,8 @@ def compose_geometry_batch(
     *,
     handles: dict[int, object],
     root_height: float,
+    omitted_roots: frozenset[str] = frozenset(),
+    root_items=None,
 ) -> tuple[tuple[GridNativePlacement, ...], dict[str, object], dict[str, float]]:
     """Flatten local Cinnamon rectangles while retaining native parent boxes."""
     placements: list[GridNativePlacement] = []
@@ -718,14 +906,25 @@ def compose_geometry_batch(
     heights: dict[str, float] = {}
 
     def walk(grid: ComposedGrid, parent_height: float):
-        children = {path_identity(item.path): item for item in grid.grid.effective_children}
-        for placement in grid.prepared.placements:
+        children = (root_items if grid is composition and root_items is not None
+                    else {path_identity(item.path): item for item in grid.grid.effective_children})
+        deferred_flow_ids = grid.provisional_ids | grid.native_deferred_flows
+        native_placements = (grid.prepared.placements.selected(grid.viewport_roots)
+                             if grid.viewport_roots is not None else grid.prepared.placements)
+        for placement in native_placements:
             identifier = placement.node_id
+            if grid is composition and identifier in omitted_roots:
+                continue
             item = children[identifier]
             child = item.effective_children[0]
             placements.append(placement)
             widgets[identifier] = handles[id(item.source)]
             heights[identifier] = parent_height
+            if identifier in deferred_flow_ids:
+                # The owning GridItem retains exact structural placement (or
+                # an explicitly provisional P2 bound). Its absent native Flow
+                # needs no flattened descendant batch until promotion.
+                continue
             nested = grid.nested.get(identifier)
             if nested is not None:
                 grid_id = identifier + "/grid"

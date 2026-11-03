@@ -29,7 +29,7 @@ kernels must have independently executed differential tests.
 
 | Location | Ownership |
 |---|---|
-| `rust/sfle-core/src/` | Native Rust numerical kernels: Flex, Block/Inline, Grid and inline fragments |
+| `rust/cinnamon-core/src/` | Native Rust numerical kernels: Flex, Block/Inline, Grid and inline fragments |
 | `psx/layout/contracts/` | Shared input/output models, fixed-point/wire, errors, engine protocol, Grid identity |
 | `psx/layout/engine/` | Rust PyO3 adapter and load-time optional fallback selection |
 | `psx/layout/fallback/` | Optional Python numerical implementation; *not* required for the Rust engine |

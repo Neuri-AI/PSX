@@ -20,7 +20,7 @@ from psx.layout.contracts.errors import SFLEError  # noqa: E402
 from psx.layout.contracts.lengths import Length  # noqa: E402
 
 CORPUS = json.loads((ROOT / "tests/sfle/fixtures/f2_alpha_acceptance.json").read_text())
-RUST_ROOT = ROOT / "rust/sfle-core"
+RUST_ROOT = ROOT / "rust/cinnamon-core"
 
 
 def _axis(value):

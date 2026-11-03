@@ -8,9 +8,9 @@ on:
       - 'psx/layout/fallback/semantic_inline_text.py'
       - 'psx/renderers/**/inline_paint.py'
       - 'psx/renderers/**/inline_measurement.py'
-      - 'rust/sfle-core/**'
-      - 'rust/sfle-core/src/python_binding.rs'
-      - 'rust/sfle-core/src/lib.rs'
+      - 'rust/cinnamon-core/**'
+      - 'rust/cinnamon-core/src/python_binding.rs'
+      - 'rust/cinnamon-core/src/lib.rs'
       - 'psx/markup/html_aliases.py'
       - 'psx/renderers/**/cinnamon_*layout_bridge.py'
       - 'tests/sfle/test_semantic_inline_text.py'
@@ -18,7 +18,7 @@ on:
       - 'tests/interop/test_cinnamon_block_rust_python_parity.py'
       - 'tests/interop/test_cinnamon_grid_rust_python_parity.py'
       - 'psx/layout/grid/solver.py'
-      - 'rust/sfle-core/src/flow_snapshot.rs'
+      - 'rust/cinnamon-core/src/flow_snapshot.rs'
       - 'tests/architecture/**'
       - 'tests/sfle/**'
       - 'tests/test_kivy_button_default_padding.py'
@@ -30,9 +30,9 @@ on:
       - 'psx/layout/fallback/semantic_inline_text.py'
       - 'psx/renderers/**/inline_paint.py'
       - 'psx/renderers/**/inline_measurement.py'
-      - 'rust/sfle-core/src/semantic_inline_text.rs'
-      - 'rust/sfle-core/src/python_binding.rs'
-      - 'rust/sfle-core/src/lib.rs'
+      - 'rust/cinnamon-core/src/semantic_inline_text.rs'
+      - 'rust/cinnamon-core/src/python_binding.rs'
+      - 'rust/cinnamon-core/src/lib.rs'
       - 'psx/markup/html_aliases.py'
       - 'psx/renderers/**/cinnamon_*layout_bridge.py'
       - 'tests/sfle/test_semantic_inline_text.py'
@@ -40,7 +40,7 @@ on:
       - 'tests/interop/test_cinnamon_block_rust_python_parity.py'
       - 'tests/interop/test_cinnamon_grid_rust_python_parity.py'
       - 'psx/layout/grid/solver.py'
-      - 'rust/sfle-core/src/flow_snapshot.rs'
+      - 'rust/cinnamon-core/src/flow_snapshot.rs'
       - '.github/workflows/semantic-inline-fragments.yml'
 
 permissions:
@@ -87,7 +87,7 @@ jobs:
       - uses: actions/checkout@v5
       - uses: dtolnay/rust-toolchain@stable
       - name: Run actual independent Rust inline kernel tests
-        run: cargo test --manifest-path rust/sfle-core/Cargo.toml semantic_inline_text -- --nocapture
+        run: cargo test --manifest-path rust/cinnamon-core/Cargo.toml semantic_inline_text -- --nocapture
 
   native-rust-python-parity:
     runs-on: ubuntu-24.04
@@ -101,7 +101,7 @@ jobs:
       - name: Install PSX and native wheel toolchain
         run: python -m pip install -e . pytest 'maturin>=1.8,<2'
       - name: Compile Rust Cinnamon engine into the actual PyO3 wheel
-        run: maturin build --release --manifest-path rust/sfle-core/Cargo.toml --out /tmp/sfle-inline-wheels
+        run: maturin build --release --manifest-path rust/cinnamon-core/Cargo.toml --out /tmp/sfle-inline-wheels
       - name: Install and verify native ABI, without Python fallback
         run: |
           python -m pip install --no-deps /tmp/sfle-inline-wheels/*.whl

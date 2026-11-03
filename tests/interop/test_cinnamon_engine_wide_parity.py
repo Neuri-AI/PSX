@@ -241,7 +241,7 @@ def test_text_fragments_share_public_engine_protocol(backends):
 def test_multileaf_width_dependent_convergence_is_identical(backends):
     """Both real solvers must request the same UI metrics in the same rounds."""
     from psx.layout.runtime.remeasure_session import compute_with_width_measurements
-    from test_real_multi_leaf_convergence_regression import test_snapshot
+    from test_real_multi_leaf_convergence_regression import convergence_snapshot
 
     def run(engine):
         calls = []
@@ -253,7 +253,7 @@ def test_multileaf_width_dependent_convergence_is_identical(backends):
             return IntrinsicSizes(0, preferred, 20, 20, preferred, 20)
 
         result = compute_with_width_measurements(
-            test_snapshot(), engine.compute, measure,
+            convergence_snapshot(), engine.compute, measure,
             compute_provisional=engine.compute_provisional,
             initial_widths={"a": 100, "b": 100},
         )

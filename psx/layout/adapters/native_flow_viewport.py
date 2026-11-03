@@ -32,6 +32,11 @@ class FlowViewportPlan:
     viewport_top: float = 0.0
     scroll_host: object | None = None
     contexts: dict[str, object] | None = None
+    release_native: bool = False
+    # Certified structural-only P2 roots need no native batch entries. Their
+    # prior accepted receipt remains valid until a current viewport promotes
+    # them; it must not be mistaken for an actually applied native update.
+    retained_roots: frozenset[str] = frozenset()
 
     def accept(self) -> None:
         if self.workset is not None:
@@ -40,6 +45,7 @@ class FlowViewportPlan:
                 widgets=self.widgets, viewport_height=self.height,
                 epoch=self.epoch, backend=self.backend, skipped=self.deferred_ids,
                 viewport_top=self.viewport_top, contexts=self.contexts,
+                retain_ids=self.retained_roots,
             )
         if self.scroll_host is not None:
             # Already mounted Qt, Kivy and Tk Scroll hosts observe their
@@ -53,6 +59,20 @@ class FlowViewportPlan:
                     self.scroll_host, "_psx_viewport_grid_deferred", False
                 ))
             )
+
+    def materialization_groups(self) -> dict[str, tuple[str, ...]]:
+        """Return complete repeated-card groups without inferring CSS bounds."""
+        roots = set(self.roots)
+        groups: dict[str, list[str]] = {}
+        current = None
+        for placement in self.placements:
+            if placement.node_id in roots:
+                current = placement.node_id
+                groups[current] = []
+            if current is not None:
+                groups[current].append(placement.node_id)
+        return {root: tuple(nodes) for root, nodes in groups.items()
+                if root in roots}
 
 
 def plan_native_flow_viewport(renderer, prepared, snapshot, result, bindings,
@@ -205,4 +225,5 @@ def plan_native_flow_viewport(renderer, prepared, snapshot, result, bindings,
     )
     return FlowViewportPlan(workset, group_roots, batch, widgets,
                             float(height), epoch, backend, skipped,
-                            viewport_top, scroll_host, contexts)
+                            viewport_top, scroll_host, contexts,
+                            release_native=True)

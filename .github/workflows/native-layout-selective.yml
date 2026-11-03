@@ -183,7 +183,7 @@ jobs:
         run: python -m pytest -q tests/test_resource_baseline.py
       - uses: dtolnay/rust-toolchain@stable
       - run: python -m pip install "maturin>=1.8,<2"
-      - run: maturin build --release --manifest-path rust/sfle-core/Cargo.toml --out wheelhouse
+      - run: maturin build --release --manifest-path rust/cinnamon-core/Cargo.toml --out wheelhouse
       - run: python -m pip install --no-deps --find-links wheelhouse "psx-sfle-native==0.1.0"
       - run: python -m pytest -q tests/test_reconciler_ownership_lifecycle.py
       - name: Capture Rust and Python resource baselines
@@ -254,7 +254,7 @@ jobs:
           python-version: "3.12"
           cache: pip
       - uses: dtolnay/rust-toolchain@stable
-      - run: cargo test --manifest-path rust/sfle-core/Cargo.toml --all-targets
+      - run: cargo test --manifest-path rust/cinnamon-core/Cargo.toml --all-targets
       - run: python -m pip install -e . pytest
       - name: Rust/Python capability and geometry agreement
         run: python -m pytest -q tests/interop/test_sfle_differential.py tests/interop/test_sfle_capability_parity.py tests/interop/test_sfle_deferral_boundaries.py tests/sfle/test_grid_math.py
@@ -642,7 +642,7 @@ jobs:
       - name: Install Python build and test dependencies
         run: python -m pip install -e '.[kivy]' pytest "maturin>=1.8,<2"
       - name: Build installable wheel on actual runner
-        run: maturin build --release --manifest-path rust/sfle-core/Cargo.toml --out wheelhouse
+        run: maturin build --release --manifest-path rust/cinnamon-core/Cargo.toml --out wheelhouse
       - name: Install wheel and assert Rust primary ABI
         run: |
           python -m pip install --no-deps --find-links wheelhouse "psx-sfle-native==0.1.0"

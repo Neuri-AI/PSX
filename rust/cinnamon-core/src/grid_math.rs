@@ -455,6 +455,100 @@ pub struct GridConstrainedRect {
     pub overflow_y: bool,
 }
 
+/// Compressed exact projection of repeated, equal-height fixed-span tracks.
+/// The PSX structural receipt certifies equal heights and width-independent
+/// text contributions; Cinnamon retains ownership of quantization and extent.
+/// Partial rows, offsets and constraints use the complete Grid kernel.
+#[derive(Clone, Debug)]
+pub struct UniformGridTemplate {
+    pub columns: Vec<GridConstrainedRect>,
+    pub row_stride_raw: i64,
+    pub extent_raw: i32,
+}
+
+pub fn uniform_grid_template(
+    span: u8, count: usize, width: f64, column_gap: f64, row_gap: f64,
+    height: f64, rtl: bool,
+) -> Result<UniformGridTemplate, GridPackingError> {
+    use crate::layout_unit::LayoutUnit;
+    use std::collections::HashMap;
+    if span == 0 || span > 12 || 12 % span != 0 || count == 0 {
+        return Err(GridPackingError::InvalidInput("Invalid uniform Grid packing"));
+    }
+    let per_row = 12 / span as usize;
+    if count % per_row != 0 {
+        return Err(GridPackingError::InvalidInput("Uniform Grid needs complete rows"));
+    }
+    let slots: Vec<GridSlot> = (0..per_row).map(|index| GridSlot {
+        id: index.to_string(), span: Some(span), offset: 0, order: 0,
+    }).collect();
+    let heights: HashMap<String, f64> = slots.iter()
+        .map(|slot| (slot.id.clone(), height)).collect();
+    let mut rows = compute_grid(&slots, width, column_gap, row_gap,
+                                &heights, &HashMap::new(), rtl)?;
+    let columns = rows.remove(0);
+    let gap = LayoutUnit::from_nearest(row_gap)
+        .map_err(|_| GridPackingError::InvalidInput("Invalid Grid row gap"))?.raw() as i64;
+    let row_height = columns[0].height_raw as i64;
+    let stride = row_height + gap;
+    let extent = (count / per_row - 1) as u128 * stride as u128 + row_height as u128;
+    if extent > i32::MAX as u128 {
+        return Err(GridPackingError::InvalidInput("Grid rectangle overflow"));
+    }
+    Ok(UniformGridTemplate { columns, row_stride_raw: stride, extent_raw: extent as i32 })
+}
+
+#[cfg(test)]
+mod uniform_projection_tests {
+    use super::*;
+    use std::collections::HashMap;
+
+    #[test]
+    fn compressed_projection_matches_every_full_kernel_rectangle() {
+        for span in [1_u8, 2, 3, 4, 6, 12] {
+            for (width, gap, row_gap, height) in [
+                (480.0, 16.0, 16.0, 70.0),
+                (501.125, 3.375, 5.015625, 19.328125),
+                (0.0, 16.0, 1.0, 0.0),
+                (2.0, 16.0, 0.0, 0.0),
+            ] {
+                for rtl in [false, true] {
+                    let per_row = 12 / span as usize;
+                    let count = per_row * 37;
+                    let template = uniform_grid_template(
+                        span, count, width, gap, row_gap, height, rtl).unwrap();
+                    let slots: Vec<GridSlot> = (0..count).map(|i| GridSlot {
+                        id: i.to_string(), span: Some(span), offset: 0, order: 0,
+                    }).collect();
+                    let heights = slots.iter().map(|slot| (slot.id.clone(), height)).collect();
+                    let full = compute_grid(&slots, width, gap, row_gap, &heights,
+                                            &HashMap::new(), rtl).unwrap();
+                    for (row_index, row) in full.iter().enumerate() {
+                        for (column_index, rect) in row.iter().enumerate() {
+                            let mut expected = template.columns[column_index].clone();
+                            expected.id = rect.id.clone();
+                            expected.y_raw = (row_index as i64 * template.row_stride_raw) as i32;
+                            assert_eq!(*rect, expected);
+                        }
+                    }
+                    let last = &full.last().unwrap()[0];
+                    assert_eq!(template.extent_raw, last.y_raw + last.height_raw);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn unsupported_or_overflowing_uniform_tracks_fail_closed() {
+        for (span, count) in [(0, 4), (5, 5), (3, 3), (13, 1), (3, 0)] {
+            assert!(uniform_grid_template(span, count, 480., 16., 16., 70., false).is_err());
+        }
+        assert!(uniform_grid_template(3, 5000, 480., 16., 16., 1_000_000., false).is_err());
+        assert!(uniform_grid_template(3, 4, f64::NAN, 0., 0., 1., false).is_err());
+        assert!(uniform_grid_template(3, 4, 480., 0., 0., -1., false).is_err());
+    }
+}
+
 /// Renderer-neutral Cinnamon Grid entry point; constraints do not alter spans.
 pub fn compute_grid(
     slots: &[GridSlot],

@@ -93,11 +93,20 @@ def test_ternary_with_fstring_in_jsx_button():
 
 @pytest.mark.parametrize(
     "expression",
-    ['f"Unterminated {count"', 'f"Empty {}"', 'f"Unmatched }"', 'f"Invalid {count + 1}"'],
+    ['f"Unterminated {count"', 'f"Empty {}"', 'f"Unmatched }"'],
 )
 def test_unsupported_fstring_syntax_has_markup_error(expression):
     with pytest.raises(MarkupSyntaxError):
         parse_expressive_expression(expression)
+
+
+def test_fstring_arithmetic_evaluates_current_lexical_value():
+    from psx.markup.expressive_runtime import lexical
+
+    node = parse_expressive_expression('f"Count is {count + 1}"')
+    expression = ast.fix_missing_locations(ast.Expression(lower(node, filename="value.psx")))
+    assert eval(compile(expression, "value.psx", "eval"),
+                {"count": 6, "_psx_expr_lexical": lexical}) == "Count is 7"
 
 
 def test_component_transform_handles_exact_reported_pattern():

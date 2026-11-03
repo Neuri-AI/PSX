@@ -1,10 +1,18 @@
-//! Pure, renderer-independent CSS Flexbox main-size distribution kernel.
+//! Cinnamon — Native Rust layout engine for Velto.
 //!
-//! This implements the resolved single-line flexible-length freezing step
-//! (CSS Flexbox §9.7). It does **not** provide a complete Flexbox renderer,
-//! percentage/intrinsic resolution, native geometry or Python bindings yet.
-//! The Python counterpart lives at psx/sfle/flex_math.py.
-
+//! Renderer-independent layout computation for PSX.
+//!
+//! Cinnamon provides:
+//! - Flexbox, Grid, Block and Inline layout computation.
+//! - Intrinsic sizing and percentage-based constraints.
+//! - Fixed-point layout geometry.
+//! - Incremental layout computation and reuse.
+//! - Recursive layout and semantic inline fragments.
+//!
+//! Native UI rendering and widget lifecycle management remain
+//! the responsibility of PSX adapters.
+//!
+//! Optional Python bindings are exposed through PyO3.
 pub mod compute;
 pub mod grid_math;
 pub mod flow_layout;

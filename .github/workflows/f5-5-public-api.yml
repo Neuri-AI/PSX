@@ -7,7 +7,7 @@ on:
       - "psx/__init__.py"
       - "scripts/docs/**"
       - "tests/test_docs_api_census.py"
-      - "docs/architecture/f5-5-api-exports.json"
+      - "tests/fixtures/public-api-exports.json"
       - ".github/workflows/f5-5-public-api.yml"
   workflow_dispatch:
 
@@ -23,6 +23,6 @@ jobs:
         with:
           python-version: "3.12"
       - name: Verify committed root export inventory
-        run: python scripts/docs/api_census.py --check docs/architecture/f5-5-api-exports.json
+        run: python scripts/docs/api_census.py --check tests/fixtures/public-api-exports.json
       - name: Verify audit tool failure behavior
         run: python -m unittest discover -s tests -p test_docs_api_census.py -v

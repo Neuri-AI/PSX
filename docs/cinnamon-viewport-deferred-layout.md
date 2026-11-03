@@ -4,14 +4,130 @@
 
 Cinnamon Rust remains the only authority for solved CSS geometry. Viewport awareness
 is an optimization hint, never permission to commit guessed, stale, or incomplete
-rectangles. Every result must match the full solve for the same normalized
+rectangles. Every committed or current-width-certified result must match the full solve for the same normalized
 snapshot, subject to existing 1/64 CSS pixel accuracy. Renderers own native
 measurements, scroll state, widget geometry and painting; the engine never
 imports Qt, Tkinter or Kivy.
 
-No public developer opt-in or special VirtualList / VirtualGrid is required.
+Virtualization is an internal PSX responsibility. Developers never change their
+interface, restrict their components or manage the viewport to benefit from it.
+There is no public opt-in, VirtualList or VirtualGrid API.
 
-## Implemented
+## Native resource lifetime and initial materialization
+
+Certified ordinary text GridItems and repeated Flex/HTML/Block cards now start with a complete logical instance
+tree and **no native handles**. `MountedInstance.native_suspended` differs
+from an allocated widget that has merely been detached. `StructuralBinding`
+retains logical layout identity and no toolkit resource. Cinnamon's existing
+Grid/Flow composition resolves tracks, item heights and document extent using
+one renderer-owned structural text probe, shared across intrinsic queries.
+The viewport workset materializes only visible and partially visible groups,
+the internal 96px overscan, and any group requiring the complete fallback.
+
+The reconciler updates suspended descriptions and hook state without native
+create/update/insert calls. Reactivation creates resources from current props,
+CSS and event callbacks, without reevaluating components or cleaning up hooks.
+Failed activation releases its partial native allocation while retaining the
+logical subtree for retry. Actual native refs, effects and focus retain the
+attached fallback. Unsafe nested Grid dependencies keep the established full
+composition path. There is no developer-facing switch or annotation.
+
+Native-only viewport commits reuse a renderer-owned mounted layout index;
+logical reconciliation and native measurement epochs invalidate that index.
+Native handle incarnation is excluded from the immutable logical projection,
+while native readback and measurement continue using live identities.
+
+The original four-column styled Grid has been measured with **218 initial
+native widgets** for 100, 500 and 5,000 logical cards (plus one unmounted
+structural measurement probe). Tests audit `renderer.create` itself, so a
+create-all-then-destroy implementation cannot satisfy that check. Grid scroll
+reentry and initial mount tests execute against Qt, Tkinter and Kivy.
+
+The same internal workset serves ordinary repeated Flex and HTML/Block cards,
+including their real Scroll clip. Component bodies execute logically before
+native classification: discovering a control, exposed ref, effect or uncertain
+positioning promotes its owning group alone. Hook state remains live while its
+native resources are absent, including reactive updates before scroll reentry.
+The structural text port uses each backend's existing glyph measurement;
+an absent widget is never passed to a native getter or a geometry setter.
+
+Normal-flow receipts additionally retain a conservative minimum height derived
+from Cinnamon's accepted boxes and native intrinsic lower bounds. Static CSS
+and row-packing proofs are cached with the immutable tree. These bounds permit
+early P2 classification without treating a previous wrapped height as a new
+width-specific measurement. Reused unwrapped text metrics still run through
+Cinnamon to produce current-width horizontal rectangles.
+
+## Indexed structural tracks and sparse native batches
+
+An immutable fixed-span, complete-row Grid whose normal-flow cards have equal,
+certified width-independent heights can retain **indexed Cinnamon tracks**.
+The Rust `uniform_grid_template` calls the existing Grid kernel for the column
+projection and validates the fixed-point stride and complete document extent.
+Its indexed receipt retains geometry for every logical GridItem while creating
+detailed Flow rectangles only for the viewport, overscan and currently live
+groups that still require a native lifecycle transition. Partial final rows,
+uncertain heights, responsive spans, non-unit device scale and complex CSS keep
+the complete existing path. There is no independent Python layout algorithm.
+
+The height proof uses independent native **unwrapped** text measurements. A
+toolkit hint that clamps preferred width to the probe cannot certify a wrapped
+height. Qt's integer glyph advances retain a conservative pixel in the proof;
+Tk settles the scratch label before reading its requested size. All committed
+rectangles still come from Cinnamon at the current width. Tests compare indexed
+tracks and visible Flow boxes with the complete solve, including fractional
+geometry, RTL, compact gutters, overflow and native baseline constraints.
+
+Already absent, certified P2 groups contribute no native batch entries. Their
+accepted structural receipts remain available for future viewport selection.
+Rollback captures only active widgets, and native style/resource observers use
+the reconciler's live resource index. Logical edits and native resource changes
+invalidate the corresponding projection or native-incarnation fence.
+
+A distinct viewport receipt may replay an already solved P0/P1 window while
+retaining explicit dirty P2 flags. It is never published as exact complete
+geometry and cannot supply a Scroll extent. A changed clip, viewport, logical
+tree, measurement epoch or newly visible group requires current geometry.
+Production renderers retain P2 until it is needed; they do not rematerialize
+thousands of offscreen groups after every resize idle interval.
+
+If a narrow width invalidates only the tail's text-height proof, the planner
+can certify P0/P1 independently and keep that tail dirty. If visible wrapping
+also changes, a minimum-height bound selects a complete structural row prefix
+for the existing Cinnamon solver. Later rows cannot influence earlier
+fixed-span tracks. The provisional tail has no native handles or batch entries
+and cannot supply a Scroll extent; entering a new clip forces current geometry.
+This avoids rebuilding thousands of P2 measurement/placement records on each
+intermediate narrow width.
+
+`native_resize_fps.py` keeps the original four-column styled card workload and
+reports initial VNode/mount cost, phase times/calls, actual materialized nodes,
+mount/unmount activity, native pin reasons, structural fallback reasons, p50/p95
+request-to-commit and request-to-processed-paint. Qt uses a synchronous repaint
+fence, Tk flushes redraw idle handlers, and Kivy dispatches canvas draw/flip.
+These are owner-thread processing measurements; compositor presentation FPS
+remains explicitly unavailable. Both fresh and previously visited widths matter.
+
+```bash
+python benchmarks/native_resize_fps.py --adapters qt tk kivy --engine rust \
+  --scenario cards --counts 100 500 5000 --cycles 40 --warmup 5 --timeout 60 \
+  --output benchmark-results/automatic-native-virtualization
+```
+
+Conservative fallback remains necessary for uncertified width-dependent
+structural work. This implementation does not promise O(visible) computation
+for arbitrary auto-sized or overlapping CSS. Native fallback is per group;
+an unsafe control or exposed handle does not pin unrelated pure siblings.
+
+Tests for the current pipeline include `test_native_suspended_lifecycle.py`,
+`test_grid_uniform_projection.py`, `test_grid_early_viewport.py`,
+`test_grid_geometry_reuse.py` and `test_mounted_grid_native_renderers.py`.
+
+The sections below retain the history of computation and attachment layers.
+Statements about complete native mounting and idle settlement describe those
+earlier layers, not the resource-lifetime pipeline documented above.
+
+## Earlier computation and attachment layers
 
 1. **Incremental definite Flex contexts.** The Rust engine can reuse an
    unchanged, definitely sized descendant when its assigned axes are unchanged
@@ -81,8 +197,8 @@ subtrees may still require full measurements.
 Use the Rust core and Python native geometry tests:
 
 ```bash
-cargo test --manifest-path rust/sfle-core/Cargo.toml --lib html_offscreen_subtrees_defer_recursion_without_stale_geometry
-cargo test --manifest-path rust/sfle-core/Cargo.toml --lib viewport_resize_reuses_still_definite_flex_children
+cargo test --manifest-path rust/cinnamon-core/Cargo.toml --lib html_offscreen_subtrees_defer_recursion_without_stale_geometry
+cargo test --manifest-path rust/cinnamon-core/Cargo.toml --lib viewport_resize_reuses_still_definite_flex_children
 python -m pytest -q tests/test_grid_solved_subtree_reuse.py tests/test_cinnamon_exact_context_cache.py tests/test_native_readback_reuse.py
 # With a real X display, or xvfb-run on Linux:
 python -m pytest -q tests/test_native_image_paint_reuse.py
@@ -138,7 +254,8 @@ native commit, a 96px-overscanned viewport planner can defer *native*
 geometry setters, pre-mutation reads, rollback snapshots and post-commit
 readback for entire previously accepted GridItem groups **fully above or
 below the live viewport**. Above-viewport pruning uses a conservative
-whole-subtree bottom bound, not merely the GridItem's own rectangle.
+whole-subtree bottom bound derived from hierarchical local Y chains (rather
+than summing sibling offsets), not merely the GridItem's own rectangle.
 Such groups are not reported as newly verified native rectangles;
 `GridNativeCommitReceipt.deferred_node_ids` names them precisely.
 
@@ -385,7 +502,7 @@ python -m pytest -q tests/test_viewport_resize_priority.py \
   tests/test_grid_viewport_workset.py tests/test_native_flow_viewport.py \
   tests/test_viewport_scroll_reentry.py
 
-cargo test --manifest-path rust/sfle-core/Cargo.toml --lib viewport_priority_reuse_tests
+cargo test --manifest-path rust/cinnamon-core/Cargo.toml --lib viewport_priority_reuse_tests
 
 # Use a real native display/Xvfb for backend-scroll certification:
 xvfb-run -a python -m pytest -q tests/test_mounted_grid_native_renderers.py \
@@ -477,3 +594,23 @@ half of native leaf-width probes have been avoided in the certified sparse
 case; it does **not** by itself certify a 60 FPS UI. Real performance still
 requires valid Qt/Kivy/Tk native CI, the full benchmark artifacts, and
 comparison on the target Mac/Retina hardware.
+
+## Earlier allocated-handle attachment layer
+
+Before handle-free materialization, viewport worksets used an allocated-handle attachment layer. PSX
+keeps the logical `MountedInstance` tree, component hooks, keys and Cinnamon
+geometry alive, while a certified P2 card root can be removed from its native
+parent after a successful commit.  A P0/P1 card is reattached before its next
+native geometry write.  The behavior is internal: there is no `VirtualList`,
+viewport prop, annotation or application opt-in.
+
+The classifier is fail-closed and works per repeated card/group, including
+direct Grid items.  Borrowed `Native` controls, exposed native refs, active
+focus, effects that may depend on a handle, and any group with uncertain CSS
+remain attached; their siblings can still be virtualized.  Detachment retains
+the existing native handle rather than destroying it, so a safe group keeps
+its logical identity and can be reattached without hook cleanup or stale
+native recreation.  Diagnostics on the renderer report materialized and
+dematerialized group counts plus pin reasons.  This is intentionally not an
+occlusion algorithm and never changes Cinnamon's structural solve, scroll
+extent, or CSS geometry authority.

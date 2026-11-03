@@ -35,10 +35,10 @@ class ImageResourceWatch:
     def clear(self) -> None:
         self._tracked.clear()
 
-    def sync(self, root: object) -> bool:
+    def sync(self, root: object, *, instances=None) -> bool:
         """Retain existing baselines, include new Image handles, discard old."""
         tracked = {}
-        def walk(instance: object) -> None:
+        def track(instance: object) -> None:
             if (instance.node.kind is NodeKind.HOST
                     and instance.node.type == "Image"
                     and instance.handle is not None
@@ -54,9 +54,15 @@ class ImageResourceWatch:
                         else file_signature(source)
                     )
                     tracked[identity] = (instance, source, previous)
-            for child in instance.children:
-                walk(child)
-        walk(root)
+        if instances is None:
+            def walk(instance):
+                track(instance)
+                for child in instance.children:
+                    walk(child)
+            walk(root)
+        else:
+            for instance in instances:
+                track(instance)
         self._tracked = tracked
         return bool(tracked)
 

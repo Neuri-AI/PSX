@@ -64,16 +64,20 @@ def test_legacy_layout_inventory_detects_import_only_no_builder_call():
 
 def test_shipped_python_examples_no_longer_depend_on_legacy_containers():
     from pathlib import Path
+    import re
 
     root = Path(__file__).resolve().parent.parent
     examples = sorted((root / "examples").rglob("*.py"))
-    assert examples
+    snippets = [(file.relative_to(root).as_posix(), file.read_text(encoding="utf-8"))
+                for file in examples]
+    # Examples now live in Markdown documentation, rather than examples/.
+    for file in [root / "README.md", *sorted((root / "docs").rglob("*.md"))]:
+        snippets.extend((f"{file.relative_to(root)}:block-{index}", source)
+                        for index, source in enumerate(re.findall(
+                            r"```python\s*\n(.*?)```", file.read_text(encoding="utf-8"), re.S)))
+    assert snippets, "No shipped Python examples were audited"
     violations = [
-        item for file in examples
-        for item in references(
-            file.relative_to(root).as_posix(),
-            file.read_text(encoding="utf-8"),
-        )
+        item for filename, source in snippets for item in references(filename, source)
     ]
     assert not violations, violations
 

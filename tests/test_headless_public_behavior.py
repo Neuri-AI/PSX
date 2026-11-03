@@ -282,21 +282,18 @@ def test_headless_fragment_transparent_lifecycle(headless_tree, request):
             width=400, height=120, align_items="flex-start")
 
     root = tree.render(view(("a", "b")))
-    boundary = root.children[0]
-    first, second = (child.handle for child in boundary.children)
+    first, second = (child.handle for child in root.children)
     receipt(request, "Fragment", "lifecycle", "mount", "transparent_boundary",
-            boundary.handle.geometry is None and boundary.handle.children == [first, second]
+            root.handle.children == [first, second]
             and len(renderer.sfle_result.boxes) == 3)
     root = tree.render(view(("a", "b"), "changed"))
-    boundary = root.children[0]
     receipt(request, "Fragment", "lifecycle", "update", "transparent_boundary",
-            boundary.handle.geometry is None and boundary.children[0].handle is first
+            root.children[0].handle is first
             and first.props["value"] == "changed")
     root = tree.render(view(("b", "a")))
     receipt(request, "Fragment", "lifecycle", "reorder", "transparent_boundary",
-            root.children[0].handle.geometry is None
-            and root.children[0].handle.children == [second, first]
+            root.handle.children == [second, first]
             and second.geometry.x == 0 and first.geometry.x == 40)
     tree.unmount()
     receipt(request, "Fragment", "lifecycle", "unmount", "transparent_boundary",
-            boundary.disposed and first.destroyed and second.destroyed)
+            root.disposed and first.destroyed and second.destroyed)

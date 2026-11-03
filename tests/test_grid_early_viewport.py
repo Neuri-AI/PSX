@@ -53,6 +53,83 @@ def compose(grid, width, gen, *, deferred=None):
     return composition, reads
 
 
+def test_unwrapped_native_receipts_recompute_current_width_rectangles():
+    from psx.layout.grid.grid_early_viewport import select_wider_unwrapped_flows
+
+    _normalized, grid = board(4)
+    metrics = IntrinsicSizes(5, 20, 10, 20, 20, 20)
+
+    def layout(width, generation, *, reusable=None, reject_native=False):
+        def measure(*args):
+            if reject_native:
+                raise AssertionError("A certified intrinsic receipt was remeasured")
+            return metrics
+        return prepare_composed_grid(
+            grid, content_width=width, generation=generation,
+            current_generation=generation, measure_leaf=measure,
+            is_ui_thread=lambda: True, engine=PythonLayoutEngine(),
+            viewport_constraints=viewport(width), reusable_flows=reusable,
+        )
+
+    first = layout(480, 1)
+    reusable = select_wider_unwrapped_flows(grid, first, content_width=560)
+    assert len(reusable) == 4
+    changed = layout(560, 2, reusable=reusable, reject_native=True)
+    full = layout(560, 2)
+    assert changed.prepared.placements == full.prepared.placements
+    for node_id, flow in changed.nested_flow.items():
+        assert flow.result.boxes == full.nested_flow[node_id].result.boxes
+        root = flow.prepared.snapshot.nodes[0].node_id
+        assert dict(flow.result.boxes)[root].border.width == 128
+
+
+def test_exact_structural_receipts_cache_without_solving_offscreen_flow_details():
+    from psx.layout.grid.grid_early_viewport import select_wider_unwrapped_flows
+
+    normalized, grid = board(96)
+    metrics = IntrinsicSizes(5, 20, 10, 20, 20, 20)
+
+    def layout(width, generation, **kwargs):
+        return prepare_composed_grid(
+            grid, content_width=width, generation=generation,
+            current_generation=generation, measure_leaf=lambda *args: metrics,
+            is_ui_thread=lambda: True, engine=PythonLayoutEngine(),
+            viewport_constraints=viewport(width), **kwargs,
+        )
+
+    first = layout(480, 1)
+    workset = SimpleNamespace(_accepted={
+        item.node_id: SimpleNamespace(epoch=7, native_y=item.y)
+        for item in first.prepared.placements
+    })
+    static = build_early_viewport_plan(normalized, grid)
+    deferred = select_pre_measurement_deferred_flows(
+        normalized, grid, first, workset, viewport_height=100, epoch=7,
+        static_plan=static, content_width=560,
+    )
+    reusable = select_wider_unwrapped_flows(
+        grid, first, content_width=560, static_plan=static)
+    assert deferred and len(reusable) == 96
+    current = layout(560, 2, deferred_flows=deferred, reusable_flows=reusable)
+    full = layout(560, 2)
+    assert not current.provisional_ids
+    assert current.native_deferred_flows == frozenset(deferred)
+    assert current.prepared.placements == full.prepared.placements
+    assert current.content_height == full.content_height
+    for item_id in deferred:
+        assert current.nested_flow[item_id] is first.nested_flow[item_id]
+    cache = AcceptedGridGeometryReuse()
+    cache.begin(normalized, 7, "qt", 1.0, {})
+    key = path_identity(grid.path)
+    cache.stage(key, grid, 560, viewport(560), current)
+    cache.accept()
+    hit = cache.lookup(key, grid, 560, viewport(560), 3)
+    assert hit is not None and hit.native_deferred_flows == frozenset(deferred)
+    # Exposure changes the viewport receipt; native promotion cannot reuse
+    # a hidden detail layout merely because its outer width was seen before.
+    assert cache.lookup(key, grid, 560, viewport(560, 4000), 3) is None
+
+
 def test_early_p2_defers_upstream_native_measurement_but_preserves_visible_rows():
     normalized, grid = board()
     first, first_reads = compose(grid, 480, 1)
@@ -89,6 +166,23 @@ def test_early_p2_defers_upstream_native_measurement_but_preserves_visible_rows(
     assert cache.lookup(key, grid, 560, viewport(560), 3) is None
     assert not exact.provisional_ids
 
+    # A viewport receipt can reuse only its already solved P0/P1, while
+    # preserving the dirty P2 flag. It is never an exact structural cache hit.
+    cache.early_plan(key, normalized, grid)
+    cache.stage_viewport(key, grid, 560, viewport(560), changed)
+    cache.discard()
+    assert cache.lookup_viewport(key, 560, viewport(560), 3) is None
+    cache.stage_viewport(key, grid, 560, viewport(560), changed)
+    cache.accept()
+    replay = cache.lookup_viewport(key, 560, viewport(560), 3)
+    assert replay is not None
+    assert replay.provisional_ids == changed.provisional_ids
+    assert replay.prepared.generation == 3
+    assert cache.lookup(key, grid, 560, viewport(560), 3) is None
+    assert cache.lookup_viewport(key, 560, viewport(560, 200), 3) is None
+    cache.begin(normalized, 5, "qt", 1.0, {})
+    assert cache.lookup_viewport(key, 560, viewport(560), 3) is None
+
 
 def test_early_p2_refuses_invalidation_and_unproven_previous_position():
     normalized, grid = board(60)
@@ -111,6 +205,27 @@ def test_early_p2_refuses_invalidation_and_unproven_previous_position():
         receipt.native_y = 0
     assert select(epoch=7) == {}
     assert select(epoch=7, overscan=5000) == {}
+
+
+def test_narrower_certified_text_cards_use_prior_row_bounds_before_measurement():
+    """A narrower normal-flow card cannot shrink and pull P2 rows onscreen."""
+    normalized, grid = board(100)
+    accepted, _ = compose(grid, 480, 1)
+    workset = SimpleNamespace(_accepted={
+        item.node_id: SimpleNamespace(epoch=3, native_y=item.y)
+        for item in accepted.prepared.placements
+    })
+    plan = build_early_viewport_plan(normalized, grid)
+    legacy = select_pre_measurement_deferred_flows(
+        normalized, grid, accepted, workset, viewport_height=650,
+        epoch=3, static_plan=plan,
+    )
+    narrowed = select_pre_measurement_deferred_flows(
+        normalized, grid, accepted, workset, viewport_height=650,
+        epoch=3, static_plan=plan, content_width=400,
+    )
+    assert len(narrowed) > len(legacy)
+    assert narrowed
 
 
 def test_interactive_and_responsive_grids_are_never_provisionally_skipped():

@@ -6,7 +6,7 @@ on:
     branches: [main]
     paths:
       - "psx/layout/**"
-      - "rust/sfle-core/**"
+      - "rust/cinnamon-core/**"
       - "tests/interop/sfle_frozen_probe.py"
       - "tests/interop/test_sfle_native_wheel.py"
       - ".github/workflows/sfle-native-matrix.yml"
@@ -14,7 +14,7 @@ on:
     branches: [main]
     paths:
       - "psx/layout/**"
-      - "rust/sfle-core/**"
+      - "rust/cinnamon-core/**"
       - "tests/interop/sfle_frozen_probe.py"
       - "tests/interop/test_sfle_native_wheel.py"
       - ".github/workflows/sfle-native-matrix.yml"
@@ -57,7 +57,7 @@ jobs:
       - name: Install Python fallback, build, test and freeze dependencies
         run: python -m pip install -e '.[kivy]' pytest "maturin>=1.8,<2" "pyinstaller>=6.9"
       - name: Build real native PyO3 wheel on this runner
-        run: maturin build --release --manifest-path rust/sfle-core/Cargo.toml --out wheelhouse
+        run: maturin build --release --manifest-path rust/cinnamon-core/Cargo.toml --out wheelhouse
       - name: Install and inspect native wheel
         run: |
           python -m pip install --no-deps --find-links wheelhouse "psx-sfle-native==0.1.0"

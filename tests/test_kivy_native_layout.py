@@ -272,11 +272,11 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
                 before = paragraph.children[0].handle.widget
                 after = paragraph.children[-1].handle.widget
                 inside = span.children[0].handle.widget
-                # Kivy uses bottom-left origins. Convert child text line
-                # tops into the same paragraph-local coordinate system.
+                # Ordinary Kivy widgets share a window canvas coordinate
+                # plane. Nesting a span does not translate its child's pos.
                 tops = [
                     before.y + before.height,
-                    span.handle.widget.y + inside.y + inside.height,
+                    inside.y + inside.height,
                     after.y + after.height,
                 ]
                 assert max(tops) - min(tops) <= 1, (padding, tops)
@@ -1023,11 +1023,16 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
             Config.set("graphics", "window_state", "hidden")
             from kivy.uix.widget import Widget
             from psx.renderers.kivy.scroll import _PSXScrollView
-            from types import SimpleNamespace
+            from kivy.core.window import Window
+            from kivy.clock import Clock
+            from kivy.input.providers.mouse import MouseMotionEvent
+            from kivy.effects.scroll import ScrollEffect
 
             def scroll(width, height, content_width, content_height):
                 view = _PSXScrollView(size_hint=(None, None),
-                                      size=(width, height))
+                                      size=(width, height),
+                                      effect_cls=ScrollEffect,
+                                      always_overscroll=False)
                 content = Widget(size_hint=(None, None),
                                  size=(content_width, content_height))
                 view.add_widget(content)
@@ -1039,32 +1044,48 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
 
             outer, outer_content = scroll(160, 100, 160, 300)
             inner, inner_content = scroll(120, 80, 120, 200)
+            inner.pos = (0, 100)
             outer_content.add_widget(inner)
-            inner.scroll_y = 0.0
-            remaining = inner._psx_scroll_delta(0, 45)
-            assert remaining == (0.0, 0.0)
-            assert abs(outer.scroll_y - (1 - 45 / 200)) < 1e-6
-            assert inner.scroll_y == 0.0
-            first = outer.scroll_y
-            touch = SimpleNamespace(is_mouse_scrolling=True,
-                                    button="scrolldown",
-                                    pos=(inner.center_x, inner.center_y))
-            assert inner.on_touch_down(touch) is True
-            assert outer.scroll_y < first
-            # No scroll host claims a delta after all ancestors reach a bound.
-            outer.scroll_y = 0.0
-            assert inner._psx_scroll_delta(0, 48) == (0.0, 48.0)
-            outer.scroll_y = 1.0
-            from unittest.mock import patch
-            from kivy.uix.scrollview import ScrollView
-            # Native Kivy owns kinetic pan mechanics. Exercise PSX's edge
-            # residual around that operation without synthesizing a second
-            # native physics solver.
-            with patch.object(ScrollView, "on_scroll_move", return_value=True):
-                touch_move = SimpleNamespace(dx=0.0, dy=-30.0)
-                assert inner.on_scroll_move(touch_move) is True
-            assert abs(outer.scroll_y - (1 - 30 / 200)) < 1e-6
-            outer_content.remove_widget(inner)
+            Window.add_widget(outer)
+            try:
+                outer.scroll_y = inner.scroll_y = 0.5
+                Clock.tick()
+                Clock.tick()
+                def wheel(identifier, target):
+                    x, y = target.to_window(target.center_x, target.center_y)
+                    touch = MouseMotionEvent("mouse", identifier,
+                        [x / (Window.width - 1), y / (Window.height - 1), "scrollup"],
+                        is_touch=True)
+                    touch.scale_for_screen(Window.width, Window.height)
+                    return touch
+                def dispatch_wheel(identifier, target=inner):
+                    touch = wheel(identifier, target)
+                    assert outer.collide_point(*touch.pos)
+                    handled = outer.on_touch_down(touch)
+                    outer.on_touch_up(touch)
+                    return handled
+
+                # Real native wheel dispatch first consumes the inner
+                # viewport, then lets the parent handle its boundary.
+                previous_outer, previous_inner = outer.scroll_y, inner.scroll_y
+                assert dispatch_wheel(1) is True
+                Clock.tick()
+                assert inner.scroll_y < previous_inner
+                assert abs(outer.scroll_y - previous_outer) < 1e-6
+                inner.scroll_y = 0.0
+                Clock.tick()
+                previous_outer = outer.scroll_y
+                assert dispatch_wheel(2) is True
+                Clock.tick()
+                assert outer.scroll_y < previous_outer
+                assert inner.scroll_y == 0.0
+                outer.scroll_y = 0.0
+                Clock.tick()
+                assert not dispatch_wheel(3, outer)
+                assert inner.scroll_y == outer.scroll_y == 0.0
+            finally:
+                Window.remove_widget(outer)
+                outer_content.remove_widget(inner)
         """)
         environment = dict(os.environ)
         environment["KIVY_NO_FILELOG"] = "1"
@@ -1130,7 +1151,7 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
             from psx.renderers.kivy.kivy import KivyRenderer
             from psx.layout.fallback.engine import PythonLayoutEngine
             from psx.layout.contracts.model import AvailableSize, LayoutConstraints
-            from psx.layout import native_scroll_hosts
+            from psx.renderers.kivy import scroll_host as native_scroll_hosts
 
             renderer = KivyRenderer(
                 sfle_constraints=LayoutConstraints(
@@ -1578,6 +1599,7 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
             Window.add_widget(host)
             try:
                 assert host.parent is Window
+                Window.size = (280, 140)
                 Window.dispatch("on_resize", 280, 140)
                 Clock.tick()
                 assert renderer._sfle_resize_error is None
@@ -1645,6 +1667,7 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
                     assert (renderer._sfle_constraints.width.value,
                             renderer._sfle_constraints.height.value) == tuple(Window.size)
                     assert renderer._sfle_resize_error is None
+                    Window.size = (900, 600)
                     Window.dispatch("on_resize", 900, 600)
                     Clock.tick()
                     assert tuple(widget.size) == (900, 600)

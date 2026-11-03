@@ -22,11 +22,12 @@ from math import isfinite
 from psx.core.grid_contract import (
     normalize_grid_props, normalize_grid_item_props,
 )
+from psx.core.vnode import NodeKind
 from psx.markup.html_aliases import FORMATTING_TAGS
 from psx.layout.adapters.grid_viewport_workset import (
     subtree_is_safe_for_root_culling,
 )
-from psx.layout.contracts.lengths import parse_length, LengthKind
+from psx.layout.contracts.lengths import parse_length, LengthKind, Length
 from psx.layout.projection.native_layout_snapshot import path_identity
 
 
@@ -151,25 +152,70 @@ def build_early_viewport_plan(normalized, grid):
     """Pure structural CSS/row proof, cacheable under mounted-tree identity."""
     if normalized is None or not _plain_root_grid(normalized, grid):
         return None
-    if (not subtree_is_safe_for_root_culling(grid)
-            or not _no_negative_margins(grid)):
-        return None
+    # ``_plain_root_grid`` has already certified the sole root subtree.
+    # Both predicates are hereditary (they reject on the first unsafe
+    # descendant), so re-walking the Grid and each of its cards repeats the
+    # same CSS scan O(cards) times during the first resize.
     packing = _uniform_fixed_rows(grid)
     if packing is None:
         return None
     per_row, row_gap = packing
-    safe_ids = tuple(
-        path_identity(item.path)
-        if subtree_is_safe_for_root_culling(item) else None
-        for item in grid.effective_children
-    )
-    return per_row, row_gap, safe_ids
+    safe_ids = tuple(path_identity(item.path) for item in grid.effective_children)
+    props = normalize_grid_props(grid.source.props)
+    column_gap = parse_length(props["column_gap"])
+    return (per_row, row_gap, safe_ids, _monotonic_normal_flow(grid),
+            float(column_gap.value) if column_gap.kind is LengthKind.PX else None)
+
+
+def _monotonic_normal_flow(grid):
+    """Prove shrinking a normal text card cannot move later rows upward."""
+    allowed = {"GridItem", "div", "p", "Text"}
+    stack = list(grid.effective_children)
+    while stack:
+        node = stack.pop()
+        if node.kind is not NodeKind.HOST or node.type not in allowed:
+            return False
+        props = getattr(node.source, "props", {}) or {}
+        if any(name in props for name in (
+            "width", "height", "layout_width", "layout_height",
+            "min_width", "max_width", "min_height", "max_height",
+        )):
+            return False
+        computed = getattr(node.source, "css_computed", None)
+        if computed is not None:
+            properties = getattr(computed, "properties", {})
+            specified = getattr(computed, "specified", ())
+            for name in specified:
+                value = properties.get(name)
+                key = str(name).replace("_", "-")
+                if (isinstance(value, Length)
+                        and value.kind not in (LengthKind.PX, LengthKind.AUTO, LengthKind.NONE)):
+                    return False
+                if key == "display" and value not in ("block", None):
+                    return False
+                if key in ("width", "height", "min-width", "max-width",
+                           "min-height", "max-height", "aspect-ratio"):
+                    return False
+                if any(part in key for part in ("margin", "padding", "border")):
+                    if key.endswith(("color", "style", "radius")):
+                        continue
+                    try:
+                        length = parse_length(value)
+                    except (TypeError, ValueError):
+                        return False
+                    if length.kind is not LengthKind.PX or length.value < 0:
+                        return False
+                if isinstance(value, str) and any(unit in value.lower()
+                                                  for unit in ("%", "vw", "vh", "vmin", "vmax")):
+                    return False
+        stack.extend(node.effective_children)
+    return True
 
 
 def select_pre_measurement_deferred_flows(
     normalized, grid, accepted, workset, *,
     viewport_height, epoch, overscan=96.0,
-    static_plan=None,
+    static_plan=None, content_width=None,
 ):
     """Select previously accepted Flow cards proven below even a zero-height grid.
 
@@ -189,8 +235,15 @@ def select_pre_measurement_deferred_flows(
             else build_early_viewport_plan(normalized, grid))
     if plan is None:
         return {}
-    per_row, row_gap, safe_ids = plan
+    per_row, row_gap, safe_ids, normal_flow, _column_gap = plan
     cutoff = float(viewport_height) + float(overscan)
+    prior_width = getattr(accepted, "content_width", 0.0)
+    monotonic_shrink = (
+        isinstance(content_width, (int, float)) and isfinite(content_width)
+        and isinstance(prior_width, (int, float)) and isfinite(prior_width)
+        and prior_width > 0 and content_width <= prior_width
+        and normal_flow
+    )
     # Only a contiguous *tail of complete Grid rows* can be provisional.
     # Otherwise one structurally dependent later row could receive a Y based
     # on stale heights of an earlier P2 row, rather than true Cinnamon data.
@@ -198,12 +251,31 @@ def select_pre_measurement_deferred_flows(
     # the first deferred row.
     proven = []
     receipts = getattr(workset, "_accepted", {})
+    minimum_y = 0.0
+    previous_row_floor = 0.0
     for index, identifier in enumerate(safe_ids):
+        if index % per_row == 0:
+            if index:
+                minimum_y += previous_row_floor + row_gap
+            previous_row_floor = 0.0
+        flow = accepted.nested_flow.get(identifier)
+        if normal_flow and flow is not None:
+            previous_row_floor = max(
+                previous_row_floor, getattr(flow, "minimum_content_height", 0.0))
         # Even zero-height earlier rows retain this minimum Y via row gaps.
-        if ((index // per_row) * row_gap < cutoff or identifier is None):
+        if identifier is None:
             proven.append(False)
             continue
         prior = receipts.get(identifier)
+        if monotonic_shrink and prior is not None:
+            proven.append(bool(
+                prior.epoch == epoch and prior.native_y >= cutoff
+                and identifier in accepted.nested_flow
+            ))
+            continue
+        if minimum_y < cutoff:
+            proven.append(False)
+            continue
         proven.append(bool(
             prior is not None and prior.epoch == epoch
             and prior.native_y >= cutoff
@@ -218,3 +290,47 @@ def select_pre_measurement_deferred_flows(
         for index in range(first_row, len(safe_ids))
         if proven[index]
     }
+
+
+def select_wider_unwrapped_flows(grid, accepted, *, content_width, static_plan=None):
+    """Return exact Flow receipts that remain unwrapped at a wider width.
+
+    This is intentionally separate from viewport P2 selection.  It is valid
+    for visible cards too: every terminal native leaf previously reported a
+    preferred width that fitted its definite probe, and ordinary block-flow
+    width can only increase here.  A missing proof simply keeps the existing
+    full measurement path.
+    """
+    if (accepted is None or accepted.grid.source is not grid.source
+            or not isinstance(content_width, (int, float))
+            or not isfinite(content_width)):
+        return {}
+    reusable = {}
+    if static_plan is not None:
+        per_row, _row_gap, safe_ids, normal_flow, column_gap = static_plan
+        if not normal_flow or column_gap is None:
+            return {}
+        identifiers = safe_ids
+    else:
+        packing = _uniform_fixed_rows(grid)
+        if packing is None or not _monotonic_normal_flow(grid):
+            return {}
+        per_row, _row_gap = packing
+        gap = parse_length(normalize_grid_props(grid.source.props)["column_gap"])
+        if gap.kind is not LengthKind.PX:
+            return {}
+        column_gap = gap.value
+        identifiers = tuple(path_identity(item.path) for item in grid.effective_children)
+    # Use a lower bound on Cinnamon's per-track rounding, not the entire
+    # Grid width, when proving a text card cannot wrap.
+    allocated_width = max(0.0, (content_width - (per_row - 1) * column_gap) / per_row - 1 / 64)
+    for identifier in identifiers:
+        flow = accepted.nested_flow.get(identifier)
+        if (flow is not None
+                and isinstance(getattr(flow, "unwrapped_at_width", None), (int, float))
+                and flow.unwrapped_at_width <= allocated_width):
+            reusable[identifier] = flow
+    # A partial set is still exact for its own GridItems, but keeping a single
+    # proof boundary makes future changes easier to audit and never masks a
+    # structural child which needs current measurement.
+    return reusable if len(reusable) == len(grid.effective_children) else {}

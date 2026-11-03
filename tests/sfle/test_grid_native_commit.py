@@ -580,6 +580,7 @@ def test_mixed_grid_commit_reuses_outer_rollback_snapshot():
         _sfle_generation=3, _sfle_owner_thread=get_ident(),
     )
     mixed.handles = {}
+    mixed.grids = {}
     mixed.generation = 3
     mixed.snapshot = lambda: (_ for _ in ()).throw(
         AssertionError("Duplicate native Grid snapshot"),

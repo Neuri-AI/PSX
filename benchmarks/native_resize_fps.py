@@ -41,6 +41,13 @@ def stats(values):
             "max_ms": max(values)}
 
 
+def count_stats(values):
+    """Percentiles for cardinalities; unlike latency these are not milliseconds."""
+    return {"mean": statistics.mean(values), "p50": pct(values, 50),
+            "p95": pct(values, 95), "p99": pct(values, 99),
+            "max": max(values)}
+
+
 def run_cell(args):
     # These imports must run only in the child process: do not mix Qt/Kivy/Tk event loops.
     from grid_resize_interactive import build_workload, mounted_stats
@@ -58,7 +65,8 @@ def run_cell(args):
 
     # Track solver time separately from UI/layout-commit cost.
     solver = {"calls": {}, "elapsed_ms": {}}
-    for method in ("compute", "compute_grid", "compute_provisional", "compute_incremental"):
+    for method in ("compute", "compute_grid", "compute_provisional", "compute_incremental",
+                   "compute_uniform_grid_template"):
         original = getattr(engine, method, None)
         if not callable(original):
             continue
@@ -95,6 +103,8 @@ def run_cell(args):
         renderer = KivyRenderer(sfle_constraints=viewport(WIDTHS[0]), engine=engine)
 
     reconciler = Reconciler(renderer)
+    from native_pipeline_metrics import instrument_native_pipeline
+    pipeline = instrument_native_pipeline(renderer, Reconciler, args.adapter)
     early_patch = None
     early_stage_patch = None
     viewport_patch = None
@@ -120,7 +130,14 @@ def run_cell(args):
                 GridViewportWorkset, "plan", return_value=frozenset(),
             )
             viewport_patch.start()
-        mounted = reconciler.render(build_workload(args.count, args.scenario, styled=args.scenario == "cards"))
+        generation_started = time.perf_counter_ns()
+        description = build_workload(args.count, args.scenario, styled=args.scenario == "cards")
+        vnode_generation_ms = (time.perf_counter_ns() - generation_started) / 1e6
+        initial_before = pipeline.snapshot()
+        mount_started = time.perf_counter_ns()
+        mounted = reconciler.render(description)
+        initial_mount_ms = (time.perf_counter_ns() - mount_started) / 1e6
+        initial_pipeline = pipeline.delta(initial_before)
         mounted_nodes, native_widgets = mounted_stats(mounted)
         original_commit = renderer.commit_layout
 
@@ -159,6 +176,13 @@ def run_cell(args):
             def settled():
                 return not renderer._sfle_resize_scheduled and renderer._sfle_resize_pending is None
 
+            def process_paint():
+                # repaint() is synchronous on Qt's owner thread and includes
+                # native children. This is a processed-paint fence, not a
+                # claim that a desktop compositor presented the frame.
+                watched.repaint()
+                renderer.application.processEvents()
+
         elif args.adapter == "tk":
             watched = renderer.root
             tk_tag = f"ResizeBenchmark_{id(watched)}"
@@ -174,6 +198,10 @@ def run_cell(args):
 
             def settled():
                 return renderer._sfle_resize_after_id is None and renderer._sfle_resize_pending is None
+
+            def process_paint():
+                # Tk flushes queued geometry/redraw idle handlers here.
+                watched.update_idletasks()
 
         else:
             from kivy.core.window import Window
@@ -200,9 +228,18 @@ def run_cell(args):
                         and renderer._sfle_resize_pending is None
                         and renderer._sfle_window_resize_event is None)
 
+            def process_paint():
+                from kivy.lang import Builder
+                Builder.sync()
+                clock.tick_draw()
+                Builder.sync()
+                Window.dispatch("on_draw")
+                Window.dispatch("on_flip")
+
         pump()
         samples = []
         for index in range(args.warmup + args.cycles):
+            pipeline_before = pipeline.snapshot()
             target = WIDTHS[(index + 1) % len(WIDTHS)]
             prev_events, prev_commits = len(events), len(commits)
             solver_before = dict(solver["elapsed_ms"])
@@ -221,6 +258,9 @@ def run_cell(args):
             batch_hits_before = getattr(grid_cache_before, "batch_hits", 0)
             early_groups_before = getattr(
                 grid_cache_before, "early_provisional_groups", 0
+            )
+            dematerialized_before = getattr(
+                renderer, "_psx_native_dematerialized_count", 0,
             )
             requested = time.perf_counter_ns()
             resize(target)
@@ -250,6 +290,22 @@ def run_cell(args):
             if failure is not None:
                 raise RuntimeError(f"{args.adapter}: native resize error") from failure
             primary_completed = time.perf_counter_ns()
+            urgent_pipeline = pipeline.delta(pipeline_before)
+            before_paint = pipeline.snapshot()
+            process_paint()
+            paint_processed_at = time.perf_counter_ns()
+            paint_pipeline = pipeline.delta(before_paint)
+            # Capture the interactive P0/P1 state before the intentional
+            # idle P2 settlement rematerializes deferred groups.
+            primary_materialized_nodes = getattr(
+                renderer, "_psx_native_materialized_count", native_widgets,
+            )
+            primary_dematerialized_groups = getattr(
+                renderer, "_psx_native_dematerialized_count", 0,
+            ) - dematerialized_before
+            primary_materialization_pins = dict(getattr(
+                renderer, "_psx_native_materialization_pins", {},
+            ))
             matches = [t for w, t in events[prev_events:] if w == target]
             primary_commits = [c for c in commits[prev_commits:] if c[0] == target]
             if not matches or not primary_commits:
@@ -324,8 +380,13 @@ def run_cell(args):
             if index >= args.warmup:
                 samples.append({
                     "width": target,
+                    "pipeline": urgent_pipeline,
+                    "paint_pipeline": paint_pipeline,
                     "event_to_commit_ms": (last_commit[2] - event_at) / 1e6,
+                    "request_to_commit_ms": (last_commit[2] - requested) / 1e6,
                     "request_to_settled_ms": (primary_completed - requested) / 1e6,
+                    "request_to_paint_processed_ms": (paint_processed_at - requested) / 1e6,
+                    "paint_processing_ms": (paint_processed_at - primary_completed) / 1e6,
                     "request_to_full_settlement_ms": (full_completed - requested) / 1e6,
                     "deferred_reconciliation_ms": (full_completed - primary_completed) / 1e6,
                     "commit_ms": primary_commit_ms,
@@ -356,6 +417,21 @@ def run_cell(args):
                         getattr(renderer, "_psx_accepted_grid_geometry", None),
                         "early_provisional_groups", 0,
                     ) - early_groups_before,
+                    "native_materialized_nodes": getattr(
+                        renderer, "_psx_native_materialized_count", native_widgets,
+                    ),
+                    "native_dematerialized_groups": getattr(
+                        renderer, "_psx_native_dematerialized_count", 0,
+                    ) - dematerialized_before,
+                    "native_materialization_pins": dict(getattr(
+                        renderer, "_psx_native_materialization_pins", {},
+                    )),
+                    "urgent_native_materialized_nodes": primary_materialized_nodes,
+                    "urgent_native_dematerialized_groups": primary_dematerialized_groups,
+                    "urgent_native_materialization_pins": primary_materialization_pins,
+                    "structural_fallbacks": dict(getattr(
+                        getattr(renderer, "_psx_accepted_grid_geometry", None),
+                        "structural_fallbacks", {})),
                 })
         latencies = [s["event_to_commit_ms"] for s in samples]
         end_to_end = [s["request_to_settled_ms"] for s in samples]
@@ -365,6 +441,18 @@ def run_cell(args):
             "adapter": args.adapter, "engine": args.engine, "scenario": args.scenario,
             "logical_items": args.count, "mounted_nodes": mounted_nodes,
             "native_widgets": native_widgets, "cycles": args.cycles,
+            "initial_vnode_generation_ms": vnode_generation_ms,
+            "initial_mount_and_layout_ms": initial_mount_ms,
+            "initial_pipeline": initial_pipeline,
+            "pipeline": {
+                category: {
+                    "latency": stats([s["pipeline"].get(category, {}).get("elapsed_ms", 0)
+                                      for s in samples]),
+                    "calls": sum(s["pipeline"].get(category, {}).get("calls", 0)
+                                 for s in samples),
+                }
+                for category in sorted({key for s in samples for key in s["pipeline"]})
+            },
             "disable_early_geometry_reuse": args.disable_early_geometry_reuse,
             "disable_viewport_defer": args.disable_viewport_defer,
             "accepted_grid_geometry_hits": sum(
@@ -380,8 +468,36 @@ def run_cell(args):
             "early_provisional_p2_groups": sum(
                 sample["early_provisional_p2_groups"] for sample in samples
             ),
+            "native_materialized_nodes": getattr(
+                renderer, "_psx_native_materialized_count", native_widgets,
+            ),
+            "native_dematerialized_groups": sum(
+                sample["native_dematerialized_groups"] for sample in samples
+            ),
+            "native_materialization_pins": dict(getattr(
+                renderer, "_psx_native_materialization_pins", {},
+            )),
+            "urgent_native_materialized_nodes": count_stats([
+                sample["urgent_native_materialized_nodes"] for sample in samples
+            ]),
+            "urgent_native_dematerialized_groups": sum(
+                sample["urgent_native_dematerialized_groups"] for sample in samples
+            ),
             "warmup": args.warmup, "event_to_commit": stats(latencies),
+            "request_to_commit": stats([s["request_to_commit_ms"] for s in samples]),
             "request_to_settled": stats(end_to_end),
+            "request_to_paint_processed": stats([
+                s["request_to_paint_processed_ms"] for s in samples]),
+            "paint_processing": stats([s["paint_processing_ms"] for s in samples]),
+            "p95_request_to_commit_budget_60hz_pass": pct([
+                s["request_to_commit_ms"] for s in samples], 95) <= BUDGET_MS,
+            "p95_processed_paint_budget_60hz_pass": pct([
+                s["request_to_paint_processed_ms"] for s in samples], 95) <= BUDGET_MS,
+            "paint_measurement": {
+                "qt": "owner-thread synchronous repaint and event flush",
+                "tk": "owner-thread redraw idle flush",
+                "kivy": "canvas draw and window flip dispatch",
+            }[args.adapter],
             "request_to_full_settlement": stats(full_settlement),
             "deferred_reconciliation": stats(
                 [s["deferred_reconciliation_ms"] for s in samples],
@@ -422,6 +538,7 @@ def run_cell(args):
             "environment": {"python": sys.version.split()[0], "system": platform.platform(), "machine": platform.machine()},
         }
     finally:
+        pipeline.close()
         if early_patch is not None:
             early_patch.stop()
         if early_stage_patch is not None:
@@ -502,11 +619,15 @@ def main():
                           f"60HzBudget={'PASS' if result['p95_budget_60hz_pass'] else 'MISS'}", flush=True)
     (args.output / "summary.json").write_text(json.dumps(results,indent=2),encoding="utf-8")
     with (args.output / "summary.csv").open("w",newline="",encoding="utf-8") as stream:
-        writer = csv.DictWriter(stream,fieldnames=("adapter","engine","scenario","logical_items","native_widgets","cycles","p50_ms","p95_ms","p99_ms","layout_hz","p95_budget_60hz_pass","error"))
+        writer = csv.DictWriter(stream,fieldnames=("adapter","engine","scenario","logical_items","native_widgets","cycles","p50_ms","p95_ms","p99_ms","request_p50_ms","request_p95_ms","paint_p50_ms","paint_p95_ms","layout_hz","p95_budget_60hz_pass","error"))
         writer.writeheader()
         for r in results:
             timing = r.get("event_to_commit",{})
-            writer.writerow({k: (timing[k] if k in timing else r.get(k)) for k in writer.fieldnames})
+            row = {k: (timing[k] if k in timing else r.get(k)) for k in writer.fieldnames}
+            for prefix, category in (("request", "request_to_commit"), ("paint", "request_to_paint_processed")):
+                for percentile in ("p50_ms", "p95_ms"):
+                    row[prefix + "_" + percentile] = r.get(category, {}).get(percentile)
+            writer.writerow(row)
     if any("error" in r for r in results):
         raise SystemExit("At least one cell failed; see .log files and summary.json")
 

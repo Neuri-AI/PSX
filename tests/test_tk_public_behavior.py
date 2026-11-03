@@ -82,7 +82,7 @@ PROPERTY_CASES = [
     ("Input", "password", False, True, lambda w: bool(w.cget("show"))),
     ("Input", "read_only", False, True, lambda w: str(w.cget("state")) == "readonly"),
     ("Input", "font_size", 14, 22, configured_font_size),
-    ("Input", "placeholder", "Hint", "New hint", lambda w: str(w._psx_hint_label.cget("text"))),
+    ("Input", "placeholder", "Hint", "New hint", lambda w: w.get()),
     ("TextArea", "value", "Before", "After", lambda w: w.get("1.0", "end-1c")),
     ("TextArea", "read_only", False, True, lambda w: str(w.cget("state")) == "disabled"),
     ("TextArea", "font_size", 14, 22, configured_font_size),
@@ -235,13 +235,15 @@ def test_tk_password_and_placeholder_preserve_value(tk_tree, request):
     mounted = tree.render(view("Input", placeholder="Hint", password=True, on_change=calls.append))
     widget = mounted.children[0].handle.widget
     root.update()
-    assert widget.get() == "" and widget._psx_hint_label.winfo_ismapped()
+    assert widget.var.get() == "" and widget.get() == "Hint"
+    assert widget._psx_hint_active and str(widget.cget("show")) == ""
+    assert calls == []
     tree.render(view("Input", value="secret", placeholder="New hint", password=True, on_change=calls.append))
     root.update()
     assert_feature(request, Feature("Input", "tkinter", "interaction", "password__value", "paired_native", applicability="native"),
                    widget.get() == "secret" and str(widget.cget("show")) == "*" and calls == [])
     assert_feature(request, Feature("Input", "tkinter", "interaction", "placeholder__value", "paired_native", applicability="native"),
-                   widget.get() == "secret" and not widget._psx_hint_label.winfo_ismapped() and calls == [])
+                   widget.var.get() == "secret" and not widget._psx_hint_active and calls == [])
 
 
 @pytest.mark.parametrize("component", ("Grid", "GridItem"))

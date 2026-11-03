@@ -4,8 +4,8 @@ on:
   pull_request:
     branches: [develop]
     paths:
-      - "docs/public/reference/**"
-      - "docs/architecture/f5-5-api-exports.json"
+      - "docs/architecture/public-api.md"
+      - "tests/fixtures/public-api-exports.json"
       - "scripts/docs/validate_api_reference.py"
       - "scripts/docs/generate_g4_reference.py"
       - "tests/test_docs_api_reference.py"
@@ -25,13 +25,13 @@ jobs:
           python-version: "3.12"
       - name: Install checked-out PSX package
         run: python -m pip install -e .
-      - name: Generate source-backed API contracts
+      - name: Check source-backed API inventory
         run: |
-          python -m scripts.docs.generate_g4_reference --check
+          python -m scripts.docs.api_census --check tests/fixtures/public-api-exports.json
       - uses: actions/upload-artifact@v4
         with:
           name: g4-generated-api-contracts
-          path: docs/public/reference/generated-contracts.mdx
+          path: docs/architecture/public-api.md
       - name: Verify API inventory and index
         run: |
           python scripts/docs/validate_api_reference.py

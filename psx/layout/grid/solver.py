@@ -71,8 +71,9 @@ def _validate_grid_input(
     limits = {} if constraints is None else constraints
     if not isinstance(limits, dict) or not limits.keys() <= seen:
         raise GridPackingError("Grid constraints must reference declared item IDs.")
-    for item in slots:
-        bound = limits.get(item.id, GridItemConstraints())
+    # Unspecified constraints are the immutable, already valid defaults. Do
+    # not allocate and revalidate one default dataclass per GridItem.
+    for bound in limits.values():
         if not isinstance(bound, GridItemConstraints):
             raise GridPackingError("Grid item constraints must be GridItemConstraints.")
         for value in (bound.min_width, bound.max_width,
@@ -101,13 +102,14 @@ def compute_grid(
     rtl: bool = False,
     engine: object | None = None,
 ) -> tuple[tuple[GridConstrainedRect, ...], ...]:
-    _validate_grid_input(
-        slots, content_width, column_gap, row_gap,
-        item_heights, constraints, rtl=rtl,
-    )
     if engine is None:
         from psx.layout.engine.backend import load_layout_engine
         engine = load_layout_engine()
+    if not getattr(engine, "_validates_grid_input", False):
+        _validate_grid_input(
+            slots, content_width, column_gap, row_gap,
+            item_heights, constraints, rtl=rtl,
+        )
     compute = getattr(engine, "compute_grid", None)
     if not callable(compute):
         raise TypeError("Cinnamon Grid requires an engine with compute_grid().")

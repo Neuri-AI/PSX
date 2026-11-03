@@ -38,6 +38,22 @@ def test_native_invalidation_image_resource_revision_detected_without_vnode_or_h
 def test_native_invalidation_unsupported_resources_require_explicit_notification():
     assert file_signature("https://example.com/sample.png") is None
     assert file_signature("qrc:/images/logo.png") is None
+
+
+def test_native_watch_uses_resource_index_without_walking_dormant_logic(tmp_path):
+    path = tmp_path / "live.png"
+    path.write_bytes(b"image")
+    image = SimpleNamespace(node=Image(str(path)), handle=object(), disposed=False)
+
+    class DormantRoot:
+        @property
+        def children(self):
+            raise AssertionError("Native observers must not traverse dormant descendants")
+
+    watch = ImageResourceWatch()
+    assert watch.sync(DormantRoot(), instances=(image,))
+    assert watch.changed() == ()
+    assert not watch.sync(DormantRoot(), instances=())
     assert file_signature("atlas://widgets/button") is None
 
 

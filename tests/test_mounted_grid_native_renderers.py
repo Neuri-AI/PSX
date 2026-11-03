@@ -3441,9 +3441,11 @@ def test_kivy_trackpad_grid_item_scroll_does_not_shift_content_on_vertical_resiz
         native = scroll.handle.widget
         assert isinstance(native, ScrollView)
         assert native.always_overscroll is False
-        # Scroll > GridItem > div; the HTML root fills the renderer-owned
-        # content viewport, not the short visible Scroll rectangle.
-        html_root = scroll.children[0].children[0]
+        # Grid() lifts the declared GridItem slot around Scroll, preserving
+        # Grid > GridItem > Scroll > div. Inspect the actual HTML root rather
+        # than its first paragraph (whose Y correctly follows the full extent).
+        html_root = scroll.children[0]
+        assert html_root.node.type == "div"
         content_root = html_root.handle.widget
         first = html_root.children[0].handle.widget
         last = html_root.children[-1].handle.widget
@@ -3469,6 +3471,32 @@ def test_kivy_trackpad_grid_item_scroll_does_not_shift_content_on_vertical_resiz
             assert renderer.grid_result is not None
     finally:
         tree.unmount()
+        close()
+
+
+def test_structural_text_probe_retains_css_typography_across_text_queries():
+    """Changing scratch glyph content cannot reset inherited CSS fonts."""
+    from psx import psx
+    backend = os.environ["PSX_GRID_BACKEND"]
+    renderer, close = make_renderer(backend)
+    reconciler = Reconciler(renderer)
+    try:
+        cards = "".join(
+            f'<GridItem span="3" key="card-{i}">'
+            f'<div style="font-size:22px; padding:12px"><p>Card {i}</p>'
+            f'<p>Value {i}</p></div></GridItem>' for i in range(64))
+        reconciler.render(psx(f'<div><Grid gap="8px">{cards}</Grid></div>'))
+        probe = renderer._psx_structural_text_probe
+        widget = probe.handle.widget
+        if backend == "qt":
+            assert widget.font().pixelSize() == 22
+        elif backend == "tk":
+            assert widget._psx_text_font.cget("size") == -22
+        else:
+            assert widget.font_size == 22
+        assert len(probe.measurements) >= 64
+    finally:
+        reconciler.unmount()
         close()
 
 
@@ -3583,6 +3611,50 @@ def test_kivy_direct_grid_textures_only_update_on_intrinsic_miss(monkeypatch):
         close()
 
 
+@pytest.mark.parametrize("card_count", (100, 500))
+def test_automatic_grid_initial_mount_creates_only_visible_and_overscan(card_count, monkeypatch):
+    """The original four-column Grid starts with P2 owning no native handle."""
+    from psx import psx
+
+    renderer, close = make_renderer(os.environ["PSX_GRID_BACKEND"])
+    reconciler = Reconciler(renderer)
+    created = []
+    create = renderer.create
+
+    def record(node, parent):
+        handle = create(node, parent)
+        created.append(node.type)
+        return handle
+
+    monkeypatch.setattr(renderer, "create", record)
+    renderer.set_sfle_constraints(LayoutConstraints(
+        AvailableSize(480, True), AvailableSize(650, True),
+    ))
+    cards = "".join(
+        f'<GridItem span="3" key="card-{i}"><div style="padding:12px">'
+        f'<div>Card {i}</div><div>Value {i * 17}</div></div></GridItem>'
+        for i in range(card_count)
+    )
+    try:
+        mounted = reconciler.render(psx(f'<div><Grid gap="16px">{cards}</Grid></div>'))
+        grid = mounted.children[0]
+        assert len(grid.children) == card_count
+        assert grid.children[-1].handle is None
+        assert grid.children[-1].native_suspended
+        assert sum(child.handle is not None for child in grid.children) < 48
+        # Includes the shared native structural text probe. In particular,
+        # there cannot have been a create-then-destroy pass over all cards.
+        assert len(created) < 300
+        placements = renderer.grid_result[0].placements
+        assert len(placements) == card_count
+        assert len({placement.y for placement in placements[:4]}) == 1
+        assert placements[4].y > placements[0].y
+        assert renderer.grid_result[1].deferred_node_ids
+    finally:
+        reconciler.unmount()
+        close()
+
+
 def test_automatic_grid_viewport_sparse_commit_and_resize_reentry():
     """Real mounted Qt/Tk/Kivy Grid keeps scroll extent and reenters offscreen.
 
@@ -3603,9 +3675,9 @@ def test_automatic_grid_viewport_sparse_commit_and_resize_reentry():
             for i in range(48)
         ), gap=8))
         first = renderer.grid_result[1]
-        assert not first.deferred_node_ids
-        last_card = root.children[-1].handle.widget
-        last_id = id(last_card)
+        assert first.deferred_node_ids
+        logical_card = root.children[-1]
+        assert logical_card.handle is None
 
         renderer.set_sfle_constraints(
             LayoutConstraints(AvailableSize(620, True), AvailableSize(120, True))
@@ -3613,7 +3685,9 @@ def test_automatic_grid_viewport_sparse_commit_and_resize_reentry():
         renderer.commit_layout(root)
         deferred = renderer.grid_result[1].deferred_node_ids
         assert deferred, "The viewport must defer native geometry for offscreen rows."
-        assert id(root.children[-1].handle.widget) == last_id
+        assert root.children[-1] is logical_card
+        assert logical_card.handle is None
+        assert logical_card.native_suspended
 
         # Window height expands far enough to expose every row. No widget
         # can keep a stale geometry once visible, regardless of backend.
@@ -3623,8 +3697,135 @@ def test_automatic_grid_viewport_sparse_commit_and_resize_reentry():
         renderer.commit_layout(root)
         final = renderer.grid_result[1]
         assert not final.deferred_node_ids
-        assert rectangle(last_card, backend)[2] == pytest.approx(620, abs=1)
-        assert id(root.children[-1].handle.widget) == last_id
+        assert root.children[-1] is logical_card
+        assert logical_card.handle is not None
+        assert rectangle(logical_card.handle.widget, backend)[2] == pytest.approx(620, abs=1)
+    finally:
+        reconciler.unmount()
+        close()
+
+
+def test_tk_large_grid_keeps_logical_extent_without_document_sized_native_surface():
+    if os.environ["PSX_GRID_BACKEND"] != "tk":
+        pytest.skip("Tk/X11 drawing surface limit")
+    from psx import psx
+
+    renderer, close = make_renderer("tk")
+    reconciler = Reconciler(renderer)
+    try:
+        renderer.set_sfle_constraints(LayoutConstraints(
+            AvailableSize(480, True), AvailableSize(650, True)))
+        renderer.root.deiconify()
+        cards = "".join(
+            f'<GridItem span="3" key="card-{i}"><div style="padding:12px">'
+            '<div>Card</div><div>Value</div></div></GridItem>' for i in range(5000))
+        root = reconciler.render(psx(f'<div><Grid gap="16px">{cards}</Grid></div>'))
+        renderer.root.update()
+        root_id = renderer.sfle_result.boxes[0][0]
+        assert dict(renderer.sfle_result.boxes)[root_id].border.height > 32767
+        assert float(root.handle.widget.place_info()["height"]) <= 746
+        assert float(root.children[0].handle.widget.place_info()["height"]) <= 746
+        assert root.children[0].children[-1].handle is None
+        assert renderer.grid_result[1].max_readback_error <= 1.0
+    finally:
+        reconciler.unmount()
+        close()
+
+
+def test_automatic_flex_initial_mount_and_expansion_preserve_logical_cards():
+    from psx import Flex
+
+    renderer, close = make_renderer(os.environ["PSX_GRID_BACKEND"])
+    reconciler = Reconciler(renderer)
+    cards = tuple(Flex(Text(f"Card {i}"), height="80px", flex_shrink=0,
+                       direction="column", key=f"card-{i}") for i in range(20))
+    try:
+        renderer.set_sfle_constraints(LayoutConstraints(
+            AvailableSize(600, True), AvailableSize(200, True)))
+        root = reconciler.render(Flex(*cards, width="600px", height="200px",
+                                      direction="column"))
+        logical = tuple(root.children)
+        assert 0 < sum(child.handle is not None for child in logical) < 8
+        assert logical[-1].handle is None
+        renderer.set_sfle_constraints(LayoutConstraints(
+            AvailableSize(600, True), AvailableSize(4000, True)))
+        reconciler.render(Flex(*cards, width="600px", height="4000px",
+                               direction="column"))
+        assert tuple(root.children) == logical
+        assert all(child.handle is not None for child in logical)
+        assert renderer.sfle_result.geometry_commit_error <= 1.0
+    finally:
+        reconciler.unmount()
+        close()
+
+
+def test_offscreen_component_state_updates_without_native_creation():
+    from psx import Flex, component, use_state
+
+    renderer, close = make_renderer(os.environ["PSX_GRID_BACKEND"])
+    reconciler = Reconciler(renderer)
+    setters = {}
+
+    @component
+    def Card(index):
+        value, setter = use_state(index)
+        setters[index] = setter
+        return GridItem(Text(str(value)), span=12)
+
+    cards = tuple(Card(index=i, key=f"card-{i}") for i in range(48))
+
+    try:
+        renderer.set_sfle_constraints(LayoutConstraints(
+            AvailableSize(600, True), AvailableSize(120, True)))
+        root = reconciler.render(Flex(
+            Grid(*cards),
+            direction="column", width="600px", height="120px",
+        ))
+        last = root.children[0].children[-1]
+        cells = tuple(last.hooks)
+        assert last.children[0].handle is None
+        setters[47](999)
+        reconciler.scheduler._flush()
+        assert root.children[0].children[-1] is last
+        assert tuple(last.hooks) == cells
+        assert last.children[0].children[0].node.props["value"] == "999"
+        assert last.children[0].handle is None
+        renderer.set_sfle_constraints(LayoutConstraints(
+            AvailableSize(600, True), AvailableSize(4000, True)))
+        reconciler.render(Flex(Grid(*cards), direction="column",
+                               width="600px", height="4000px"))
+        assert last.children[0].handle is not None
+        assert last.children[0].children[0].handle.props["value"] == "999"
+        assert tuple(last.hooks) == cells
+    finally:
+        reconciler.unmount()
+        close()
+
+
+def test_component_discovered_native_control_pins_only_its_grid_item():
+    from psx import Button, component
+
+    renderer, close = make_renderer(os.environ["PSX_GRID_BACKEND"])
+    reconciler = Reconciler(renderer)
+
+    @component
+    def NativeControl():
+        return Button("Keep native state")
+
+    try:
+        renderer.set_sfle_constraints(LayoutConstraints(
+            AvailableSize(600, True), AvailableSize(120, True)))
+        root = reconciler.render(Grid(*(
+            GridItem(NativeControl() if i == 47 else Text(str(i)), span=12,
+                     key=f"card-{i}") for i in range(48)
+        )))
+        assert root.children[46].handle is None
+        assert root.children[47].handle is not None
+        assert root.children[47].children[0].children[0].handle is not None
+        native = root.children[47].handle
+        renderer.commit_layout(root)
+        assert root.children[46].handle is None
+        assert root.children[47].handle is native
     finally:
         reconciler.unmount()
         close()
@@ -3650,7 +3851,8 @@ def test_automatic_html_card_flow_deferred_native_resize():
             AvailableSize(600, True), AvailableSize(120, True),
         ))
         root = reconciler.render(document)
-        assert not getattr(renderer, "_psx_native_flow_deferred_ids", frozenset())
+        assert getattr(renderer, "_psx_native_flow_deferred_ids", frozenset())
+        assert root.children[-1].handle is None
 
         renderer.set_sfle_constraints(LayoutConstraints(
             AvailableSize(620, True), AvailableSize(120, True),
@@ -3707,8 +3909,10 @@ def test_scroll_newly_visible_grid_items_receive_native_geometry():
         mounted = reconciler.render(scene)
         native_scroll = mounted.children[0].handle.widget
         grid = mounted.children[0].children[0].children[0]
-        last_card = grid.children[-1].handle.widget
-        last_widget_id = id(last_card)
+        logical_card = grid.children[-1]
+        # The structural layout now certifies initial P2 without creating
+        # native resources. The logical card still participates in extent.
+        assert logical_card.handle is None
         renderer.commit_layout(mounted)
         prepared, receipt = renderer.grid_result
         last_placement = prepared.placements[-1]
@@ -3718,7 +3922,9 @@ def test_scroll_newly_visible_grid_items_receive_native_geometry():
         set_native_scroll_offset(native_scroll, backend, 0, target)
         renderer.commit_layout(mounted)
         assert last_placement.node_id not in renderer.grid_result[1].deferred_node_ids
-        assert id(grid.children[-1].handle.widget) == last_widget_id
+        assert grid.children[-1] is logical_card
+        assert logical_card.handle is not None
+        assert not logical_card.native_suspended
         assert renderer.grid_result[1].max_readback_error <= 1.0
         assert native_scroll_offset(native_scroll, backend)[1] >= target - 3.0
     finally:
@@ -3784,8 +3990,10 @@ def test_native_grid_provisional_p2_skips_upstream_flow_solve_then_reenters():
             renderer._psx_in_native_viewport_resize = False
         cache = getattr(renderer, "_psx_accepted_grid_geometry", None)
         assert cache is not None
-        assert cache.early_provisional_groups > 0, (
-            "The P2 phase still calculated all 96 offscreen Flow cards"
+        assert (cache.early_provisional_groups > 0
+                or cache.exact_unwrapped_groups > 0), (
+            "The resize neither deferred P2 nor published an exact "
+            "unwrapped-flow receipt"
         )
         assert renderer.sfle_result.geometry_commit_error <= 1.0
         # A newly exposed viewport must ignore all provisional hints and

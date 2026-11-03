@@ -401,7 +401,7 @@ class RoutingTests(unittest.TestCase):
         expected = {"sfle", "rust"}
         for path in (
             "psx/sfle/grid_math.py",
-            "rust/sfle-core/src/grid_math.rs",
+            "rust/cinnamon-core/src/grid_math.rs",
             "tests/sfle/test_grid_math.py",
             "tests/fixtures/grid_row_packing.json",
             "tests/fixtures/grid_cross_axis.json",
@@ -595,7 +595,7 @@ class RoutingTests(unittest.TestCase):
 
     def test_rust_change_runs_native_packaging(self):
         self.assertGreaterEqual(
-            self.selected("rust/sfle-core/src/compute_layout.rs"),
+            self.selected("rust/cinnamon-core/src/compute_layout.rs"),
             {"sfle", "rust", "chromium", "native"},
         )
 
@@ -720,7 +720,7 @@ class RoutingTests(unittest.TestCase):
         workflows = Path(__file__).resolve().parents[1] / ".github/workflows"
         for name, prop, jobs in (
             ("ci.yml", "code", ("core", "pyside6", "package")),
-            ("sfle-core.yml", "sfle", ("python-contracts", "rust-core",
+            ("cinnamon-core.yml", "sfle", ("python-contracts", "rust-core",
                                        "differential", "native-wheel",
                                        "f2-migration-inventory")),
         ):

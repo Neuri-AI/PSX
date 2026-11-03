@@ -87,6 +87,13 @@ class SolvedTextSubtreeReuse:
         self.hits = 0
         self.misses = 0
 
+    def clear(self):
+        """Release immutable source trees when the native root is disposed."""
+        self._entries.clear()
+        self._pending.clear()
+        self._generation = None
+        self._epoch = None
+
     def begin(self, generation, epoch):
         if self._generation != generation or self._epoch != epoch:
             self._pending.clear()

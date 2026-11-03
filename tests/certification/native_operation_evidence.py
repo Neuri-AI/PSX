@@ -44,7 +44,7 @@ COMPONENT_OPERATION_TESTS = MappingProxyType({
     ("tk", "Button", "create"): "test_real_ttk_widgets_use_sfle_place_not_pack_or_grid",
     ("tk", "Checkbox", "create"): "test_tk_checkbox_event_and_state_reconciliation_in_sfle_tree",
     ("tk", "Input", "create"): "test_input_native_geometry_comes_from_sfle_and_reuses_entry",
-    ("tk", "Input", "update"): "test_input_placeholder_overlay_is_not_user_value_and_hides_on_update",
+    ("tk", "Input", "update"): "test_input_placeholder_display_is_not_user_value_and_hides_on_update",
     ("tk", "TextArea", "create"): "test_textarea_wraps_at_real_sfle_width_and_preserves_edit_state",
     ("tk", "Slider", "create"): "test_additional_tk_native_primitives_have_sfle_geometry_no_pack",
     ("tk", "Radio", "create"): "test_additional_tk_native_primitives_have_sfle_geometry_no_pack",

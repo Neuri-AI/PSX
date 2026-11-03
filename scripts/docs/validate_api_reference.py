@@ -9,8 +9,8 @@ from pathlib import Path
 import psx
 
 ROOT = Path(__file__).resolve().parents[2]
-MANIFEST = ROOT / "docs/architecture/f5-5-api-exports.json"
-REFERENCE = ROOT / "docs/public/reference/api-index.mdx"
+MANIFEST = ROOT / "tests/fixtures/public-api-exports.json"
+REFERENCE = ROOT / "docs/architecture/public-api.md"
 
 
 def check() -> None:
@@ -22,7 +22,7 @@ def check() -> None:
     missing = [name for name in names if f"`{name}`" not in doc]
     if missing:
         raise ValueError(f"Public exports missing from reference index: {missing}")
-    directory = (ROOT / "docs/public/reference/root-symbols.mdx").read_text(encoding="utf-8")
+    directory = doc
     for name in names:
         if f"## `{name}`" not in directory:
             raise ValueError(f"Missing detailed export section: {name}")

@@ -209,10 +209,15 @@ def test_border_none_and_pointer_cursor_in_button_styles():
     assert computed.properties["padding-top"] == Length.px(0)
 
 
-@pytest.mark.parametrize("invalid", ("grab", "wait", "pointer extra"))
+@pytest.mark.parametrize("invalid", ("grab", "pointer extra"))
 def test_cursor_rejects_unsupported_values(invalid):
     with pytest.raises(CssSyntaxError):
         parse_stylesheet(f"button {{cursor: {invalid}}}")
+
+
+def test_wait_cursor_is_supported():
+    computed = resolve_style(parse_stylesheet("button {cursor: wait}"), StyleTarget("button"))
+    assert computed.properties["cursor"] == "wait"
 
 
 @pytest.mark.parametrize("side", ("top", "right", "bottom", "left"))

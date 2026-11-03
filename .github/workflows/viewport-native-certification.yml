@@ -5,7 +5,7 @@ on:
     paths:
       - "psx/layout/**"
       - "psx/renderers/**"
-      - "rust/sfle-core/src/**"
+      - "rust/cinnamon-core/src/**"
       - "tests/test_grid_viewport*"
       - "tests/test_grid_geometry_reuse.py"
       - "tests/test_grid_early_viewport.py"
@@ -56,7 +56,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - name: Verify real incremental Rust kernel matches full layout
         run: |
-          cargo test --manifest-path rust/sfle-core/Cargo.toml --lib viewport_priority_reuse_tests
+          cargo test --manifest-path rust/cinnamon-core/Cargo.toml --lib viewport_priority_reuse_tests
 
   real-native:
     name: Actual mounted Grid native viewport / ${{ matrix.backend }}
@@ -94,7 +94,7 @@ jobs:
       - name: Compile actual Cinnamon Rust wheel and enforce Rust backend
         run: |
           python -m pip install 'maturin>=1.8,<2'
-          maturin build --release --manifest-path rust/sfle-core/Cargo.toml --out wheelhouse
+          maturin build --release --manifest-path rust/cinnamon-core/Cargo.toml --out wheelhouse
           python -m pip install --no-deps --find-links wheelhouse 'psx-sfle-native==0.1.0'
           python -c "from psx.layout.engine.backend import load_layout_engine; assert load_layout_engine().backend_name == 'rust'"
       - name: Certify viewport native reentry with Cinnamon Rust (no fallback)

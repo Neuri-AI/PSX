@@ -18,6 +18,7 @@ class PythonLayoutEngine:
     """Internal fail-closed experimental snapshot coordinator (not advertised)."""
 
     backend_name = "python"
+    _validates_grid_input = True
 
     @property
     def capabilities(self) -> EngineCapabilities:

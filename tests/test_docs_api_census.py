@@ -1,13 +1,13 @@
 """G1 public export audit regression checks; does not certify native behavior."""
 import unittest
-from pathlib import Path
 from scripts.docs.api_census import ROOT, census
+from scripts.docs.validate_api_reference import MANIFEST
 
 
 class ApiCensusTests(unittest.TestCase):
     def test_pinned_snapshot_matches_current_root_exports(self):
         import json
-        snapshot = json.loads((ROOT / "docs/architecture/f5-5-api-exports.json").read_text())
+        snapshot = json.loads(MANIFEST.read_text())
         actual = census((ROOT / "psx/__init__.py").read_text())
         self.assertEqual(actual, snapshot)
 

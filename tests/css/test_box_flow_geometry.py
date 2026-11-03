@@ -115,14 +115,13 @@ def test_inline_formatting_owner_edges_fail_closed():
         compute_measured_block_snapshot(_request(root, owner, leaf))
 
 
-def test_auto_margin_does_not_silently_center():
-    import pytest
-    from psx.layout.contracts.errors import SFLECapabilityError
+def test_inline_auto_left_margin_resolves_to_zero():
     root = _node("root", None, "div", display="block")
     child = _node("child", "root", "Button",
                   layout_margin_left=Length(LengthKind.AUTO))
-    with pytest.raises(SFLECapabilityError, match="margin"):
-        compute_measured_block_snapshot(_request(root, child))
+    boxes = dict(compute_measured_block_snapshot(_request(root, child)).boxes)
+    assert boxes["child"].content.width == 20
+    assert boxes["child"].border.x == 0
 
 
 def test_nested_flex_space_between_respects_horizontal_padding():

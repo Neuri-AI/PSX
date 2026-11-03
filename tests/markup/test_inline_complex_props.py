@@ -42,11 +42,17 @@ def test_mixed_lexical_dictionary_values():
     '<Welcome user={{"name": "User"} />',
     '<Welcome user={{"name" "User"}} />',
     '<Welcome user={[1, 2} />',
-    '<Welcome user={{"name": unknown + 1}} />',
 ])
 def test_invalid_inline_literals_fail_with_diagnostics(source):
     with pytest.raises(MarkupSyntaxError):
         parse_expressive_expression(source, filename="broken.psx")
+
+
+def test_inline_dictionary_arithmetic_compiles_with_lexical_names():
+    parsed = parse_expressive_expression('<Welcome user={{"name": count + 1}} />')
+    expression = ast.fix_missing_locations(ast.Expression(lower(parsed, filename="value.psx")))
+    compile(expression, "value.psx", "eval")
+    assert any(isinstance(node, ast.Add) for node in ast.walk(expression))
 
 
 def test_m4a_rejects_inline_dictionary():

@@ -97,14 +97,17 @@ def commit_tk_sfle(renderer: "TkinterRenderer", root: "MountedInstance") -> None
                                     "Function component needs one mounted root.")
                 components[id(instance.node)] = instance.children[0].node
             else:
-                if instance.handle is None or id(instance.node) in handles:
+                from psx.core.structural_binding import layout_binding
+                binding = layout_binding(instance)
+                if binding is None or id(instance.node) in handles:
                     raise SFLEError(DiagnosticCode.INVALID_TREE, "Missing or duplicated Tk handle.")
-                handles[id(instance.node)] = instance.handle
+                handles[id(instance.node)] = binding
             mounted_stamp.append(mounted_structural_token(instance))
             for child in instance.children:
                 gather(child)
 
-        gather(root)
+        from psx.layout.projection.mounted_layout_index import mounted_layout_index
+        components, handles, mounted_stamp = mounted_layout_index(renderer, root)
         reuse = getattr(renderer, "_sfle_structural_snapshot_reuse", None)
         if reuse is None:
             reuse = NativeStructuralSnapshotReuse()
@@ -119,6 +122,7 @@ def commit_tk_sfle(renderer: "TkinterRenderer", root: "MountedInstance") -> None
         # Index VNodes once per transaction: reconstructing this dict
         # inside the native text loop was O(N^2) for large HTML flows.
         identity_by_id = dict(prepared.identities)
+        from psx.core.structural_binding import DormantWidgetIdentity
         widgets = {node_id: handles[id(node)].widget for node_id, node in prepared.identities}
         external = {
             node_id: port
@@ -142,6 +146,8 @@ def commit_tk_sfle(renderer: "TkinterRenderer", root: "MountedInstance") -> None
 
         for node in prepared.snapshot.nodes:
             widget = widgets[node.node_id]
+            if isinstance(widget, DormantWidgetIdentity):
+                continue
             if not widget.winfo_exists():
                 raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT,
                                 "Disposed Tk widget in mounted SFLE tree.", node.node_id)
@@ -231,6 +237,9 @@ def commit_tk_sfle(renderer: "TkinterRenderer", root: "MountedInstance") -> None
             leaf_widgets, textarea_ids=textarea_ids, image_ids=image_ids,
             spacer_ids=spacer_ids, divider_nodes=divider_nodes,
         )
+        from psx.layout.runtime.structural_text_probe import StructuralMeasurementSource
+        source = StructuralMeasurementSource(
+            renderer, source, leaf_widgets, prepared.identities, "tk")
         readings = []
         native_round = renderer._sfle_native_intrinsic_cache.begin(
             invalidate_all=renderer._sfle_measurement_invalidations.invalidate_all,
@@ -376,7 +385,8 @@ def commit_tk_sfle(renderer: "TkinterRenderer", root: "MountedInstance") -> None
             snapshot, prepared.identities, result,
             tk_inline_measure({node_id: leaf_widgets[node_id]
                                for node_id in leaf_widgets if node_id in widgets
-                               and identity_by_id[node_id].type == "Text"}),
+                               and identity_by_id[node_id].type == "Text"
+                               and not isinstance(leaf_widgets[node_id], DormantWidgetIdentity)}),
             _resolve_semantic_inline,
             engine=renderer._sfle_engine,
         )
@@ -394,13 +404,14 @@ def commit_tk_sfle(renderer: "TkinterRenderer", root: "MountedInstance") -> None
         ports = SFLEAdapterPorts(
             current_generation=lambda: renderer._sfle_generation,
             nodes_alive=lambda ids: all(
-                node_id in widgets and widgets[node_id].winfo_exists() for node_id in ids
+                node_id in widgets and (isinstance(widgets[node_id], DormantWidgetIdentity)
+                                        or widgets[node_id].winfo_exists()) for node_id in ids
             ),
             apply_rectangles=lambda _: None,
             read_rectangles=lambda: {
                 node_id: read_widget(node_id, widget)
                 for node_id, widget in widgets.items()
-                if widget.winfo_manager() == "place"
+                if not isinstance(widget, DormantWidgetIdentity) and widget.winfo_manager() == "place"
             },
         )
         validate_adapter_commit(snapshot, result, ports)
@@ -410,6 +421,26 @@ def commit_tk_sfle(renderer: "TkinterRenderer", root: "MountedInstance") -> None
         pixel_space = DevicePixelSpace.from_widget("tk", renderer.root)
         rectangles = dict(result.boxes)
         border_root = rectangles[root_id].border
+        surface_rectangles = {}
+        # X11 pixmaps have finite native dimensions. A plain window-clipped
+        # root > Grid can retain millions of logical pixels without creating
+        # equally tall Tk drawing surfaces. Scroll owners and styled/complex
+        # roots keep their existing full native geometry contract.
+        if (len(snapshot.nodes) == 2 and snapshot.nodes[1].component == "Grid"
+                and snapshot.nodes[0].component in FORMATTING_TAGS):
+            grid_id = snapshot.nodes[1].node_id
+            grid_node = mixed_grid.grids.get(grid_id)
+            if (grid_node is not None
+                    and mixed_grid._geometry_reuse.early_plan(grid_id, normalized, grid_node) is not None):
+                bottom = float(renderer._sfle_constraints.height.value) + 96.0
+                from psx.layout.contracts.fixed_point import LayoutUnit
+                bottom = LayoutUnit.from_nearest(bottom).to_px()
+                for node in snapshot.nodes:
+                    rect = rectangles[node.node_id].border
+                    height = min(rect.height, max(0.0, bottom - rect.y))
+                    if height != rect.height:
+                        surface_rectangles[node.node_id] = Rect(rect.x, rect.y, rect.width, height)
+        native_root = surface_rectangles.get(root_id, border_root)
         # Keep the mounted parent at its previous size while Cinnamon
         # measures descendants. Stage its new rectangle immediately before
         # the child batch, rather than exposing an early frame during
@@ -418,7 +449,7 @@ def commit_tk_sfle(renderer: "TkinterRenderer", root: "MountedInstance") -> None
         root_before_resize = dict(root_widget.place_info())
         root_target = (
             round(border_root.x), round(border_root.y),
-            round(border_root.width), round(border_root.height),
+            round(native_root.width), round(native_root.height),
         )
         root_current = None
         if root_before_resize:
@@ -448,6 +479,11 @@ def commit_tk_sfle(renderer: "TkinterRenderer", root: "MountedInstance") -> None
             renderer, prepared, snapshot, result, widgets,
             "tk", invalidation_epoch,
         )
+        from psx.core.native_materialization import synchronize_native_materialization
+        native_flow_plan = synchronize_native_materialization(
+            renderer, root, widgets, native_flow_plan,
+        )
+        leaf_widgets.update({node_id: widgets[node_id] for node_id in leaf_widgets})
         deferred_native_ids = native_flow_plan.deferred_ids
         before = {
             node_id: dict(widget.place_info())
@@ -456,6 +492,7 @@ def commit_tk_sfle(renderer: "TkinterRenderer", root: "MountedInstance") -> None
         }
         committer = NativeGeometryCommitter(
             GeometryBackend.TK, nodes, widgets, external_ports=external,
+            surface_rectangles=surface_rectangles,
             skip_unchanged=True, prior_tk_placements=before,
             deferred_ids=deferred_native_ids,
         )
@@ -463,7 +500,8 @@ def commit_tk_sfle(renderer: "TkinterRenderer", root: "MountedInstance") -> None
         previous_wraps = {
             node_id: widget.cget("wraplength")
             for node_id, widget in leaf_widgets.items()
-            if node_id in dependent and "wraplength" in widget.keys()
+            if node_id in dependent and not isinstance(widget, DormantWidgetIdentity)
+            and "wraplength" in widget.keys()
         }
         from psx.layout.runtime.native_scroll_transaction import capture_scroll_hosts, restore_scroll_hosts
         scroll_before = capture_scroll_hosts("tk", widgets)
@@ -542,8 +580,8 @@ def commit_tk_sfle(renderer: "TkinterRenderer", root: "MountedInstance") -> None
             for node in snapshot.nodes:
                 if node.parent_id is None or node.node_id in deferred_native_ids:
                     continue
-                child = rectangles[node.node_id].border
-                parent = rectangles[node.parent_id].border
+                child = surface_rectangles.get(node.node_id, rectangles[node.node_id].border)
+                parent = surface_rectangles.get(node.parent_id, rectangles[node.parent_id].border)
                 expected = (child.x - parent.x, child.y - parent.y,
                             child.width, child.height)
                 readback = observed[node.node_id]
@@ -610,6 +648,10 @@ def commit_tk_sfle(renderer: "TkinterRenderer", root: "MountedInstance") -> None
         native_round.publish()
         mixed_grid.accept_intrinsic()
         mixed_grid.accept_viewport()
+        from psx.core.native_materialization import finalize_native_materialization
+        native_flow_plan = finalize_native_materialization(
+            renderer, root, widgets, native_flow_plan,
+        )
         native_flow_plan.accept()
         # Exact geometry and solved CSS receipts become reusable only after
         # every P2 workset has passed its native acceptance checks.

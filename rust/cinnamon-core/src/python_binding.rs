@@ -129,10 +129,55 @@ fn _sfle_native(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(compute_incremental_json,module)?)?;
     module.add_function(wrap_pyfunction!(compute_provisional_json,module)?)?;
     module.add_function(wrap_pyfunction!(compute_grid_json,module)?)?;
+    module.add_function(wrap_pyfunction!(compute_grid_compact,module)?)?;
+    module.add_function(wrap_pyfunction!(compute_uniform_grid_template,module)?)?;
     module.add_function(wrap_pyfunction!(compute_inline_text_json,module)?)?;
     module.add_function(wrap_pyfunction!(compute_measured_flow_json,module)?)?;
     module.add_function(wrap_pyfunction!(compute_recursive_tree_json,module)?)?;
     Ok(())
+}
+
+/// Indexed fixed-track receipt produced by the existing Cinnamon Grid kernel.
+#[pyfunction]
+fn compute_uniform_grid_template(
+    span: u8, count: usize, width: f64, column_gap: f64, row_gap: f64,
+    height: f64, rtl: bool,
+) -> PyResult<(Vec<(i32, i32, i32)>, i64, i32)> {
+    let template = crate::grid_math::uniform_grid_template(
+        span, count, width, column_gap, row_gap, height, rtl)
+        .map_err(|error| PyValueError::new_err(format!("Grid template rejected: {error:?}")))?;
+    Ok((template.columns.iter().map(|rect|
+        (rect.x_raw, rect.width_raw, rect.height_raw)).collect(),
+        template.row_stride_raw, template.extent_raw))
+}
+
+/// Compact transport of complete Grid output, preserving the original JSON ABI.
+#[pyfunction]
+fn compute_grid_compact(
+    items: Vec<(String, Option<u8>, u8, i32)>,
+    width: f64,
+    column_gap: f64,
+    row_gap: f64,
+    heights: Vec<(String, f64)>,
+    constraints: Vec<(String, f64, Option<f64>, f64, Option<f64>)>,
+    rtl: bool,
+) -> PyResult<Vec<Vec<(String, i32, i32, i32, i32, i32, i32, bool, bool)>>> {
+    use crate::grid_math::{GridSlot, GridItemConstraints, compute_grid};
+    use std::collections::HashMap;
+    let slots: Vec<GridSlot> = items.into_iter().map(|(id, span, offset, order)|
+        GridSlot { id, span, offset, order }).collect();
+    let native_heights: HashMap<String, f64> = heights.into_iter().collect();
+    let native_constraints: HashMap<String, GridItemConstraints> = constraints.into_iter()
+        .map(|(id, min_width, max_width, min_height, max_height)|
+            (id, GridItemConstraints { min_width, max_width, min_height, max_height }))
+        .collect();
+    let rows = compute_grid(&slots, width, column_gap, row_gap,
+                            &native_heights, &native_constraints, rtl)
+        .map_err(|error| PyValueError::new_err(format!("Grid math rejected: {error:?}")))?;
+    Ok(rows.into_iter().map(|row| row.into_iter().map(|rect| (
+        rect.id, rect.x_raw, rect.y_raw, rect.width_raw, rect.height_raw,
+        rect.used_width_raw, rect.used_height_raw, rect.overflow_x, rect.overflow_y,
+    )).collect()).collect())
 }
 
 

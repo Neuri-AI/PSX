@@ -13,7 +13,7 @@ on:
       - 'tests/test_pyside6_native_layout.py'
       - 'tests/test_tkinter_native_layout.py'
       - 'tests/test_kivy_native_layout.py'
-      - 'rust/sfle-core/tests/f2_css_image_aspect.rs'
+      - 'rust/cinnamon-core/tests/f2_css_image_aspect.rs'
       - '.github/workflows/css-image-aspect-parity.yml'
   pull_request:
     paths:
@@ -26,7 +26,7 @@ on:
       - 'tests/test_pyside6_native_layout.py'
       - 'tests/test_tkinter_native_layout.py'
       - 'tests/test_kivy_native_layout.py'
-      - 'rust/sfle-core/tests/f2_css_image_aspect.rs'
+      - 'rust/cinnamon-core/tests/f2_css_image_aspect.rs'
       - '.github/workflows/css-image-aspect-parity.yml'
 
 permissions:
@@ -106,4 +106,4 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
-      - run: cargo test --manifest-path rust/sfle-core/Cargo.toml --test f2_css_image_aspect
+      - run: cargo test --manifest-path rust/cinnamon-core/Cargo.toml --test f2_css_image_aspect

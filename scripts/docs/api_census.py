@@ -1,7 +1,7 @@
 """Fail-closed, dependency-free audit of the documented top-level PSX export surface.
 
-Usage: python scripts/docs/api_census.py --check docs/architecture/f5-5-api-exports.json
-       python scripts/docs/api_census.py --write docs/architecture/f5-5-api-exports.json
+Usage: python scripts/docs/api_census.py --check tests/fixtures/public-api-exports.json
+       python scripts/docs/api_census.py --write tests/fixtures/public-api-exports.json
 
 Run from repository root. This checks only psx.__all__, not completeness of
 submodule exports, signatures, contracts, tests or backend verification.

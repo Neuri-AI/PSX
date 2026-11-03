@@ -144,6 +144,15 @@ def schedule_resize_settlement(renderer, size, schedule_after) -> None:
     # A new successful native resize supersedes any failure in an older
     # idle generation. It is not evidence that the *new* settlement succeeded.
     renderer._psx_resize_settle_error = None
+    # P2 native rectangles are deliberately stale while their group is
+    # outside every real clip.  Replaying all of them 125ms later turns a
+    # viewport optimization back into O(total-nodes) idle work.  Production
+    # renderers therefore retain P2 receipts until a scroll/resize promotes a
+    # group to P0/P1.  The legacy bounded settlement remains available for
+    # test harnesses and diagnostic renderers that explicitly request it.
+    if not getattr(renderer, "_psx_reconcile_offscreen_at_idle", True):
+        coordinator.active = False
+        return
     mounted_root = getattr(renderer, "_sfle_mounted_root", None)
     if (not getattr(renderer, "_psx_native_flow_deferred_ids", frozenset())
             and not getattr(renderer, "_psx_native_grid_deferred_total", 0)):

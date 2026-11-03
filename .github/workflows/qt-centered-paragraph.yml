@@ -9,8 +9,8 @@ on:
       - 'tests/test_tkinter_native_layout.py'
       - 'tests/test_kivy_native_layout.py'
       - 'psx/sfle/compute_alpha.py'
-      - 'rust/sfle-core/src/compute_layout.rs'
-      - 'rust/sfle-core/tests/f2_centered_auto_cross.rs'
+      - 'rust/cinnamon-core/src/compute_layout.rs'
+      - 'rust/cinnamon-core/tests/f2_centered_auto_cross.rs'
       - 'tests/sfle/test_centered_auto_width.py'
       - 'psx/sfle/qt_layout_bridge.py'
       - 'tests/test_pyside6_native_layout.py'
@@ -99,4 +99,4 @@ jobs:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - name: Test Rust Cinnamon centered auto cross sizing
-        run: cargo test --manifest-path rust/sfle-core/Cargo.toml --test f2_centered_auto_cross
+        run: cargo test --manifest-path rust/cinnamon-core/Cargo.toml --test f2_centered_auto_cross

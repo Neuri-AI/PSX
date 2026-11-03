@@ -24,7 +24,9 @@ def _association(node: VNode) -> tuple[VNode, str] | None:
                   and c.props.get("for") == node_id and node_id), None)
     if label is None:
         return None
-    if any(c is not radio and c is not label for c in node.children):
+    if any(c is not radio and c is not label
+           and not (c.type == "Text" and not str(c.props["value"]).strip())
+           for c in node.children):
         return None
     text_parts = [str(c.props["value"]) for c in label.children if c.type == "Text"]
     if len(text_parts) != len(label.children):

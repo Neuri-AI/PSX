@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from math import isfinite
 
 from psx.core.vnode import NodeKind
+from psx.core.structural_binding import widget_identity, DormantWidgetIdentity
 from psx.layout.adapters.viewport_resize_priority import (
     ViewportPriority, classify_viewport_priority,
 )
@@ -124,6 +125,36 @@ class GridViewportWorkset:
             groups[current].append(placement)
         return groups if set(groups) == roots else {}
 
+    @staticmethod
+    def _fallback_bottom_bound(anchor, descendants):
+        """Conservative bound for malformed placement identifiers."""
+        return (
+            anchor.y + sum(p.y for p in descendants[1:])
+            + max((p.height for p in descendants), default=0.0)
+        )
+
+    @classmethod
+    def _group_bottom_bound(cls, root_id, descendants):
+        """Upper bound of subtree bottom using parent/child local coordinates.
+
+        Placement ids are hierarchical (``root/...``). Reconstructing that
+        chain keeps the bound conservative but avoids summing sibling offsets,
+        which can overestimate by whole rows and block safe P2 deferral.
+        """
+        if not descendants:
+            return 0.0
+        anchor = descendants[0]
+        offsets = {root_id: 0.0}
+        local_bottom = max(anchor.height, 0.0)
+        for placement in descendants[1:]:
+            parent_id, sep, _ = placement.node_id.rpartition("/")
+            if not sep or parent_id not in offsets:
+                return cls._fallback_bottom_bound(anchor, descendants)
+            offset = offsets[parent_id] + placement.y
+            offsets[placement.node_id] = offset
+            local_bottom = max(local_bottom, offset + placement.height)
+        return anchor.y + local_bottom
+
     def plan(self, *, root_ids, batch, widgets, viewport_height,
              epoch, backend, safe_ids, viewport_top=0.0, contexts=None, reconcile=None):
         if (not isinstance(viewport_height, (int, float))
@@ -138,20 +169,14 @@ class GridViewportWorkset:
         for root_id, descendants in groups.items():
             prior = self._accepted.get(root_id)
             anchor = descendants[0]
-            tokens = tuple((p.node_id, id(widgets[p.node_id])) for p in descendants)
+            tokens = tuple((p.node_id, widget_identity(widgets[p.node_id])) for p in descendants)
             geometry_safe = all(
                 isfinite(p.x) and isfinite(p.y) and isfinite(p.width)
                 and isfinite(p.height) and p.y >= 0 and p.width >= 0
                 and p.height >= 0 for p in descendants
             )
-            # A conservative upper bound on the entire rendered subtree:
-            # every descendant starts at a nonnegative local Y, so summing
-            # all local offsets overestimates any one ancestor path. Using
-            # the maximum descendant height also overestimates its bottom.
-            # No CSS occlusion or paint ordering assumptions are made.
-            current_bottom_bound = (
-                anchor.y + sum(p.y for p in descendants[1:])
-                + max((p.height for p in descendants), default=0.0)
+            current_bottom_bound = self._group_bottom_bound(
+                root_id, descendants,
             )
             certified = (
                 prior is not None and prior.epoch == epoch
@@ -160,6 +185,19 @@ class GridViewportWorkset:
                     contexts.get(root_id) if contexts is not None else None
                 )
             )
+            # A fresh structural composition can certify P2 before native
+            # creation. Unlike stale-native reuse, this needs no previous
+            # physical rectangle: no widget has ever existed for the group.
+            initial_structural = (
+                root_id in safe_ids and geometry_safe
+                and all(isinstance(widgets[p.node_id], DormantWidgetIdentity)
+                        for p in descendants)
+                and (anchor.y >= viewport_top + viewport_height + _OVERSCAN
+                     or current_bottom_bound <= viewport_top - _OVERSCAN)
+            )
+            if initial_structural:
+                skipped.update(p.node_id for p in descendants)
+                continue
             priority = classify_viewport_priority(
                 certified=certified, safe=root_id in safe_ids and geometry_safe,
                 old_top=prior.native_y if prior is not None else anchor.y,
@@ -177,32 +215,49 @@ class GridViewportWorkset:
 
     def accept(self, *, root_ids, batch, widgets, viewport_height,
                epoch, backend, skipped, safe_ids=None, viewport_top=0.0,
-               contexts=None):
+               contexts=None, retain_ids=frozenset()):
         # safe_ids/viewport_top are plan-time hints. Acceptance records
         # only actually committed geometry after full native validation.
         groups = self._groups(root_ids, batch, widgets)
-        if not groups:
+        if not groups and not retain_ids:
             self._accepted.clear()
             return
         accepted = {}
+        for identifier in retain_ids:
+            prior = self._accepted.get(identifier)
+            if prior is None or prior.epoch != epoch or self._backend != backend:
+                raise RuntimeError("Cannot retain uncertified structural Grid receipt")
+            accepted[identifier] = prior
         for root_id, descendants in groups.items():
-            tokens = tuple((p.node_id, id(widgets[p.node_id])) for p in descendants)
+            tokens = tuple((p.node_id, widget_identity(widgets[p.node_id])) for p in descendants)
             if root_id in skipped:
                 prior = self._accepted.get(root_id)
+                if all(
+                    isinstance(widgets[p.node_id], DormantWidgetIdentity)
+                    for p in descendants
+                ):
+                    accepted[root_id] = _AcceptedGroup(
+                        float(descendants[0].y), float(viewport_height), tokens, epoch,
+                        contexts.get(root_id) if contexts is not None else None,
+                        self._group_bottom_bound(root_id, descendants),
+                    )
+                    continue
                 if (prior is None or prior.epoch != epoch or prior.tokens != tokens
                         or prior.context != (
                             contexts.get(root_id) if contexts is not None else None
                         )):
 
-                    raise RuntimeError("Cannot accept unproven deferred Grid geometry.")
+                    raise RuntimeError(
+                        f"Cannot accept unproven deferred Grid geometry: {root_id}; "
+                        f"epoch={epoch}, prior_epoch={getattr(prior, 'epoch', None)}, "
+                        f"tokens_match={prior is not None and prior.tokens == tokens}"
+                    )
                 accepted[root_id] = prior
             else:
                 accepted[root_id] = _AcceptedGroup(
                     float(descendants[0].y), float(viewport_height), tokens, epoch,
                     contexts.get(root_id) if contexts is not None else None,
-                    (descendants[0].y
-                     + sum(p.y for p in descendants[1:])
-                     + max((p.height for p in descendants), default=0.0)),
+                    self._group_bottom_bound(root_id, descendants),
                 )
         self._accepted = accepted
         self._backend = backend

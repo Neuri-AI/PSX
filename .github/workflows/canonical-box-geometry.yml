@@ -9,7 +9,7 @@ on:
       - "psx/sfle/native_layout_snapshot.py"
       - "psx/sfle/compute_alpha.py"
       - "psx/sfle/native_wire.py"
-      - "rust/sfle-core/**"
+      - "rust/cinnamon-core/**"
       - "tests/test_native_layout_snapshot.py"
       - "tests/test_p1_canonical_box_style.py"
       - "tests/interop/test_sfle_differential.py"
@@ -21,7 +21,7 @@ on:
       - "psx/sfle/native_layout_snapshot.py"
       - "psx/sfle/compute_alpha.py"
       - "psx/sfle/native_wire.py"
-      - "rust/sfle-core/**"
+      - "rust/cinnamon-core/**"
       - "tests/test_native_layout_snapshot.py"
       - "tests/test_p1_canonical_box_style.py"
       - "tests/interop/test_sfle_differential.py"
@@ -58,6 +58,6 @@ jobs:
           python-version: "3.12"
       - uses: dtolnay/rust-toolchain@stable
       - run: python -m pip install -e . pytest
-      - run: cargo test --manifest-path rust/sfle-core/Cargo.toml --all-targets
+      - run: cargo test --manifest-path rust/cinnamon-core/Cargo.toml --all-targets
       - name: Compare identical canonical snapshots across engines
         run: python -m pytest -q tests/interop/test_sfle_differential.py

@@ -6,6 +6,7 @@ measures and places its descendants. Toolkits do not calculate sibling layout.
 from __future__ import annotations
 
 from collections.abc import Mapping
+from dataclasses import replace
 from threading import get_ident
 
 from psx.core.grid_contract import GRID_BREAKPOINTS
@@ -21,6 +22,30 @@ from psx.layout.adapters.grid_viewport_workset import (
 from psx.layout.grid.grid_native_composition import prepare_composed_grid, compose_geometry_batch
 from psx.layout.contracts.model import IntrinsicSizes, MeasuredBox, LayoutConstraints, AvailableSize
 from psx.layout.projection.native_layout_snapshot import path_identity
+
+
+class _WidgetBindings(Mapping):
+    """Resolve only widgets referenced by the transaction's native batch."""
+    def __init__(self, handles):
+        self.handles = handles
+        self.sources = {}
+        self.ambiguous = False
+
+    def __getitem__(self, key):
+        from psx.core.structural_binding import widget_identity
+        widget = self.handles[key].widget
+        identity = widget_identity(widget)
+        previous = self.sources.get(identity)
+        if previous is not None and previous != key:
+            self.ambiguous = True
+        self.sources[identity] = key
+        return widget
+
+    def __iter__(self):
+        return iter(self.handles)
+
+    def __len__(self):
+        return len(self.handles)
 
 
 class MountedMixedGrid:
@@ -41,6 +66,8 @@ class MountedMixedGrid:
         self._viewport_tops = {}
         self._scroll_ancestors = {}
         self._viewport_batches = ()
+        self._native_materialization_plans = ()
+        self._omitted_roots = {}
         # Reuse an immutable composition for repeated width requests within
         # one layout transaction. A new MountedMixedGrid is built per commit.
         self._composition_cache = {}
@@ -124,6 +151,7 @@ class MountedMixedGrid:
             return self._composition_cache[key]
         grid = self.grids[node_id]
         geometry_reuse = getattr(self, "_geometry_reuse", None)
+        pending_uniform = None
         accepted = (
             geometry_reuse.lookup(
                 node_id, grid, width, self.renderer._sfle_constraints,
@@ -133,8 +161,46 @@ class MountedMixedGrid:
         if accepted is not None:
             self._composition_cache[key] = accepted
             return accepted
-        deferred_flows = {}
         if (geometry_reuse is not None
+                and getattr(self.renderer, "_psx_in_native_viewport_resize", False)):
+            viewport_receipt = geometry_reuse.lookup_viewport(
+                node_id, width, self.renderer._sfle_constraints, self.generation)
+            if viewport_receipt is not None:
+                self._composition_cache[key] = viewport_receipt
+                return viewport_receipt
+            owner = getattr(self.renderer, "_psx_reconciler", None)
+            if owner is not None:
+                from psx.layout.grid.grid_uniform_projection import prepare_uniform_grid
+                proof = geometry_reuse.uniform_proof(node_id, self._normalized, grid)
+                pixel_scale = (getattr(self.renderer, "_psx_css_pixel_scale", 1.0)
+                               if self.backend is GridCommitBackend.KIVY else 1.0)
+                compressed = prepare_uniform_grid(
+                    proof,
+                    width=width, viewport=self.renderer._sfle_constraints,
+                    generation=self.generation, engine=self.renderer._sfle_engine,
+                    native_instances=owner._native_instances.values(),
+                    report_fallback=lambda reason: geometry_reuse.structural_fallbacks.update((reason,)),
+                    allow_dirty_tail=True,
+                    pixel_scale=pixel_scale)
+                if compressed is not None:
+                    self._composition_cache[key] = compressed
+                    if compressed.provisional_ids:
+                        geometry_reuse.early_provisional_groups += len(compressed.provisional_ids)
+                        geometry_reuse.stage_viewport(node_id, grid, width,
+                                                     self.renderer._sfle_constraints, compressed)
+                    else:
+                        geometry_reuse.exact_unwrapped_groups += len(compressed.prepared.child_ids)
+                        geometry_reuse.stage(node_id, grid, width,
+                                             self.renderer._sfle_constraints, compressed)
+                    return compressed
+                if (proof is not None and pixel_scale == 1.0
+                        and (width - (proof.per_row - 1) * proof.column_gap)
+                            / proof.per_row - 1 / 64 < proof.threshold):
+                    pending_uniform = proof
+        deferred_flows = {}
+        reusable_flows = {}
+        if (geometry_reuse is not None
+                and pending_uniform is None
                 and getattr(self.renderer, "_psx_in_native_viewport_resize", False)):
             # This runs *before* constructing native measurement callbacks,
             # scanning a Flow's children or invoking Cinnamon on its subtree.
@@ -156,7 +222,23 @@ class MountedMixedGrid:
                     geometry_reuse.latest(node_id), worksets.get(node_id),
                     viewport_height=self.renderer._sfle_constraints.height.value,
                     epoch=self._intrinsic_epoch, static_plan=structural_plan,
+                    content_width=width,
                 )
+            # A wider normal-flow card whose text was already proven not to
+            # wrap has identical intrinsic height.  Reuse it for *all* rows,
+            # including P0/P1, so Grid can produce and retain an exact
+            # current-width receipt instead of a provisional P2-only one.
+            from psx.layout.grid.grid_early_viewport import (
+                select_wider_unwrapped_flows,
+            )
+            reusable_flows = select_wider_unwrapped_flows(
+                grid, geometry_reuse.latest(node_id), content_width=width,
+                static_plan=structural_plan,
+            )
+            if len(reusable_flows) == len(grid.effective_children):
+                geometry_reuse.exact_unwrapped_groups += len(reusable_flows)
+                # The new Grid solve is fully current-width exact; P2 no
+                # longer needs an older-flow placeholder and may be cached.
         # The native baseline is shared by all width probes in this one
         # transaction, including re-entrant nested Grid compositions.
         if self.backend is GridCommitBackend.TK and not getattr(self, "_tk_idle_synced", False):
@@ -164,6 +246,19 @@ class MountedMixedGrid:
             self._tk_idle_synced = True
 
         def measure_leaf(identifier, node, allocated_width):
+            from psx.layout.runtime.structural_text_probe import measure_without_native_handle
+            intrinsic = measure_without_native_handle(
+                self.renderer, node, self.handles, allocated_width, self.backend.value)
+            if intrinsic is not None:
+                reuse_round = getattr(self, "_intrinsic_reuse", None)
+                if reuse_round is not None and allocated_width is not None:
+                    return reuse_round.measure(
+                        self.backend.value, self.handles[id(node.source)].widget,
+                        node, allocated_width, lambda: intrinsic,
+                    )
+                return intrinsic
+            from psx.core.structural_binding import materialize_for_measurement
+            materialize_for_measurement(self.renderer, node, self.handles)
             handle = self.handles[id(node.source)]
             if self.backend is GridCommitBackend.QT:
                 from psx.renderers.qt.cinnamon_qt_measurement import QtMeasurementSource
@@ -186,11 +281,21 @@ class MountedMixedGrid:
                 raise GridPackingError("Mixed native Grid requires a toolkit backend.")
             reuse_round = getattr(self, "_intrinsic_reuse", None)
             if allocated_width is None:
-                if self.backend is not GridCommitBackend.KIVY:
-                    raise GridPackingError("Intrinsic unwrapped text width requires Kivy.")
                 # This is an explicit native glyph-width probe. Do not reuse
                 # a previous width-constrained measurement as its cache key.
-                result = source.measure_width(identifier, None)
+                if self.backend is GridCommitBackend.KIVY:
+                    result = source.measure_width(identifier, None)
+                else:
+                    from psx.layout.runtime.measurement_plan import MeasurementRequest
+                    if self.backend is GridCommitBackend.QT and node.type == "Text":
+                        source._text_ids = frozenset({identifier})
+                    result = source.measure(MeasurementRequest(identifier, LayoutConstraints(
+                        AvailableSize(None, False), AvailableSize(None, False)), 0, 0)).intrinsic
+                    if self.backend is GridCommitBackend.QT and node.type == "Text":
+                        natural_width = result.preferred_width + 1.0
+                        result = source.measure_width(identifier, natural_width)
+                        result = replace(result, preferred_width=natural_width,
+                                         max_content_width=max(result.max_content_width, natural_width))
             else:
                 result = (
                 reuse_round.measure(
@@ -203,6 +308,42 @@ class MountedMixedGrid:
                 raise GridPackingError("Mixed Grid needs measured terminal native leaves.")
             return result
 
+        # Native constrained hints can clamp the preferred width to the probe
+        # even when text wrapped. A separate real unwrapped probe certifies
+        # both natural glyph width and unchanged line height before reuse.
+        measure_leaf.unwrapped = lambda identifier, node: measure_leaf(identifier, node, None)
+        if pending_uniform is not None:
+            from psx.layout.grid.grid_uniform_projection import prepare_deferred_grid_window
+
+            def compose_prefix(prefix):
+                allocated = ((width - (pending_uniform.per_row - 1)
+                              * pending_uniform.column_gap)
+                             / pending_uniform.per_row - 1 / 64)
+                reusable = {}
+                for item in prefix.children:
+                    identifier = pending_uniform.source_ids[id(item.source)]
+                    flow = pending_uniform.base.nested_flow[identifier]
+                    if flow.unwrapped_at_width <= allocated:
+                        reusable[identifier] = flow
+                return prepare_composed_grid(prefix, content_width=width,
+                    generation=self.generation, current_generation=self.renderer._sfle_generation,
+                    measure_leaf=measure_leaf, is_ui_thread=self._on_thread,
+                    breakpoints=self.breakpoints, engine=self.renderer._sfle_engine,
+                    viewport_constraints=self.renderer._sfle_constraints,
+                    flow_reuse=self._flow_reuse, invalidation_epoch=self._intrinsic_epoch,
+                    reusable_flows=reusable,
+                    kivy_text_basis=(self.backend is GridCommitBackend.KIVY))
+
+            composition = prepare_deferred_grid_window(pending_uniform,
+                width=width, viewport=self.renderer._sfle_constraints,
+                generation=self.generation, engine=self.renderer._sfle_engine,
+                native_instances=owner._native_instances.values(), compose_prefix=compose_prefix)
+            if composition is not None:
+                self._composition_cache[key] = composition
+                geometry_reuse.early_provisional_groups += len(composition.provisional_ids)
+                geometry_reuse.stage_viewport(node_id, grid, width,
+                                             self.renderer._sfle_constraints, composition)
+                return composition
         composition = prepare_composed_grid(
             grid, content_width=width,
             generation=self.generation,
@@ -217,15 +358,20 @@ class MountedMixedGrid:
                          if self.backend is GridCommitBackend.KIVY else 1.0),
             kivy_text_basis=(self.backend is GridCommitBackend.KIVY),
             deferred_flows=deferred_flows,
+            reusable_flows=reusable_flows,
         )
         if deferred_flows and geometry_reuse is not None:
-            geometry_reuse.early_provisional_groups += len(deferred_flows)
+            geometry_reuse.early_provisional_groups += len(
+                composition.provisional_ids)
         # Never publish a partial result after a measurement exception.
         self._composition_cache[key] = composition
         if geometry_reuse is not None and not composition.provisional_ids:
             geometry_reuse.stage(
                 node_id, grid, width, self.renderer._sfle_constraints, composition,
             )
+        elif geometry_reuse is not None:
+            geometry_reuse.stage_viewport(
+                node_id, grid, width, self.renderer._sfle_constraints, composition)
         return composition
 
     def accept_intrinsic(self):
@@ -307,27 +453,54 @@ class MountedMixedGrid:
                 self._viewport_heights[node_id] = scroll_rect.height
             composition = self.compose(node_id, box.width)
             geometry_reuse = getattr(self, "_geometry_reuse", None)
+            omitted = frozenset()
+            items = None
+            structural_only = composition.provisional_ids | composition.native_deferred_flows
+            plain_plan = (geometry_reuse.early_plan(node_id, self._normalized, composition.grid)
+                          if geometry_reuse is not None else None)
+            if plain_plan is not None and plain_plan[3]:
+                # These tail groups were proven P2 before composition. Their
+                # structural receipts remain in Cinnamon; an absent native
+                # subtree has nothing to validate, commit, retire or read back.
+                items = geometry_reuse.item_nodes(node_id, composition.grid)
+                workset = (getattr(self.renderer, "_psx_mixed_grid_viewport_cache", {})
+                           .get(node_id))
+                owner = getattr(self.renderer, "_psx_reconciler", None)
+                if composition.viewport_roots is not None:
+                    omitted = structural_only
+                elif owner is not None:
+                    omitted = geometry_reuse.omitted_native_roots(
+                        node_id, composition, self.handles, workset,
+                        viewport_top=self._viewport_tops[node_id],
+                        viewport_height=self._viewport_heights[node_id],
+                        epoch=self._intrinsic_epoch, native_revision=owner._native_revision)
+            self._omitted_roots[node_id] = omitted
             cached_batch = (
                 geometry_reuse.batch_lookup(
                     node_id, box.width, self.renderer._sfle_constraints,
                     box.height, self.handles,
+                    omitted_roots=omitted,
                 ) if geometry_reuse is not None else None
             )
             if cached_batch is not None:
                 batch, widgets, heights = cached_batch
             else:
+                native_bindings = _WidgetBindings(self.handles)
                 batch, widgets, heights = compose_geometry_batch(
                     composition,
-                    handles={identity: handle.widget
-                             for identity, handle in self.handles.items()},
+                    handles=native_bindings,
                     root_height=box.height,
+                    omitted_roots=omitted, root_items=items,
                 )
                 if (geometry_reuse is not None
-                        and not composition.provisional_ids):
+                        and (not composition.provisional_ids or omitted == structural_only)
+                        and not native_bindings.ambiguous):
                     geometry_reuse.batch_stage(
                         node_id, self.grids[node_id], box.width,
                         self.renderer._sfle_constraints, box.height,
                         batch, widgets, heights, self.handles,
+                        omitted_roots=omitted,
+                        binding_sources=native_bindings.sources,
                     )
             prepared.append((composition, batch, widgets, heights, box.height))
         return tuple(prepared)
@@ -344,7 +517,9 @@ class MountedMixedGrid:
             cache = {}
             self.renderer._psx_mixed_grid_viewport_cache = cache
         planned = []
+        materialization = []
         active_widget_ids = set()
+        active_widgets = {}
         epoch = self._intrinsic_epoch
         for node_id, plan in zip(self.grids, plans):
             composition, batch, widgets, heights, root_height = plan
@@ -352,15 +527,13 @@ class MountedMixedGrid:
             workset = None
             if self._viewport_allowed.get(node_id, False):
                 workset = cache.setdefault(node_id, GridViewportWorkset())
-                roots = tuple(p.node_id for p in composition.prepared.placements)
-                items = {
-                    path_identity(item.path): item
-                    for item in composition.grid.effective_children
-                }
-                safe_ids = frozenset(
-                    key for key, item in items.items()
-                    if subtree_is_safe_for_root_culling(item)
+                omitted = self._omitted_roots.get(node_id, frozenset())
+                safe_ids = self._geometry_reuse.viewport_safe_items(
+                    node_id, composition.grid,
                 )
+                roots = (composition.viewport_roots
+                         if composition.viewport_roots is not None else tuple(
+                             p.node_id for p in batch if p.node_id in safe_ids))
                 skipped = workset.plan(
                     root_ids=roots, batch=batch, widgets=widgets,
                     viewport_height=self._viewport_heights.get(node_id, 0.0),
@@ -368,14 +541,39 @@ class MountedMixedGrid:
                     viewport_top=self._viewport_tops.get(node_id, 0.0),
                     reconcile=getattr(self.renderer, '_psx_resize_priority', None),
                 )
+                # The MixedGrid route is used by ordinary card grids nested
+                # in Flex/Block roots.  Attach P0/P1 item roots before the
+                # outer commit, then defer physical detachment until that
+                # commit has been accepted in ``accept_viewport``.
+                from psx.layout.adapters.native_flow_viewport import FlowViewportPlan
+                from psx.core.native_materialization import synchronize_native_materialization
+                materialization_plan = FlowViewportPlan(
+                    workset, roots, tuple(batch), dict(widgets),
+                    float(self._viewport_heights.get(node_id, 0.0)),
+                    epoch, self.backend.value, frozenset(skipped),
+                    float(self._viewport_tops.get(node_id, 0.0)),
+                    release_native=True,
+                    retained_roots=omitted,
+                )
+                root = getattr(self.renderer, "_sfle_mounted_root", None)
+                if root is None:
+                    root = getattr(getattr(self.renderer, "_psx_reconciler", None), "root", None)
+                if root is not None:
+                    materialization_plan = synchronize_native_materialization(
+                        self.renderer, root, widgets, materialization_plan,
+                    )
+                    skipped = materialization_plan.deferred_ids
+                materialization.append(materialization_plan)
             else:
                 cache.pop(node_id, None)
+                materialization.append(None)
             # A provisional Flow has prior-width child rectangles. It must
             # NEVER reach a native setter: do not silently treat its old
             # geometry as a full current-width solved result. Refuse the
             # transaction before any native widget mutation if the P2 proof
             # was invalidated between measuring and viewport classification.
-            provisional = composition.provisional_ids
+            provisional = ((composition.provisional_ids | composition.native_deferred_flows)
+                           - self._omitted_roots.get(node_id, frozenset()))
             if provisional:
                 groups = GridViewportWorkset._groups(roots, batch, widgets)
                 for group_id in provisional:
@@ -393,12 +591,16 @@ class MountedMixedGrid:
                 id(widget) for key, widget in widgets.items()
                 if key not in skipped
             )
+            active_widgets.update({id(widget): widget for key, widget in widgets.items()
+                                   if key not in skipped})
         self._viewport_batches = tuple(planned)
+        self._native_materialization_plans = tuple(materialization)
         self._viewport_plans = plans
         # Preserve the zero-argument snapshot protocol: native integration
         # and tests wrap snapshot() to audit one rollback capture per commit.
         # Filtering is transaction-local state, not a new required argument.
         self._snapshot_widget_ids = active_widget_ids
+        self._snapshot_widgets = tuple(active_widgets.values())
         return active_widget_ids
 
     def accept_viewport(self):
@@ -406,11 +608,11 @@ class MountedMixedGrid:
         scroll_deferred = {}
         self.renderer._psx_native_grid_deferred_total = sum(
             len(skipped) for _, _, skipped in getattr(self, '_viewport_batches', ())
-        )
-        for (node_id, workset, skipped), plan in zip(
+        ) + sum(len(roots) for roots in self._omitted_roots.values())
+        for index, ((node_id, workset, skipped), plan) in enumerate(zip(
             getattr(self, "_viewport_batches", ()),
             getattr(self, "_viewport_plans", ()),
-        ):
+        )):
             owner = self._scroll_ancestors.get(node_id)
             if owner is not None:
                 host = self.handles[id(owner.source)].widget
@@ -421,12 +623,27 @@ class MountedMixedGrid:
             if workset is None:
                 continue
             composition, batch, widgets, _heights, _root_height = plan
-            workset.accept(
-                root_ids=tuple(p.node_id for p in composition.prepared.placements),
-                batch=batch, widgets=widgets,
-                viewport_height=self._viewport_heights[node_id],
-                epoch=self._intrinsic_epoch, backend=self.backend, skipped=skipped,
-            )
+            materialization = getattr(self, "_native_materialization_plans", ())
+            materialization_plan = (materialization[index]
+                                    if index < len(materialization) else None)
+            if materialization_plan is not None:
+                from psx.core.native_materialization import finalize_native_materialization
+                root = getattr(self.renderer, "_sfle_mounted_root", None)
+                if root is None:
+                    root = getattr(getattr(self.renderer, "_psx_reconciler", None), "root", None)
+                if root is not None:
+                    materialization_plan = finalize_native_materialization(
+                        self.renderer, root, widgets, materialization_plan,
+                    )
+                    skipped = materialization_plan.deferred_ids
+                materialization_plan.accept()
+            else:
+                workset.accept(
+                    root_ids=tuple(p.node_id for p in composition.prepared.placements),
+                    batch=batch, widgets=widgets,
+                    viewport_height=self._viewport_heights[node_id],
+                    epoch=self._intrinsic_epoch, backend=self.backend, skipped=skipped,
+                )
         for host, pending in scroll_deferred.values():
             # Grid and HTML flow may share a Scroll viewport. Never let the
             # final acceptance step clear the other layout participant's
@@ -453,7 +670,8 @@ class MountedMixedGrid:
         if only_widget_ids is None:
             only_widget_ids = getattr(self, "_snapshot_widget_ids", None)
         result = []
-        for widget in self._descendants():
+        candidates = getattr(self, "_snapshot_widgets", None)
+        for widget in (candidates if candidates is not None else self._descendants()):
             if only_widget_ids is not None and id(widget) not in only_widget_ids:
                 continue
             if self.backend is GridCommitBackend.QT:
@@ -528,7 +746,10 @@ class MountedMixedGrid:
         # outside the geometry rollback descendants. Capture the full
         # mounted handle set for offset restoration until ownership of
         # those hosts can be proven by a dedicated reachability test.
-        scroll_before = capture_scroll_hosts(self.backend.value, self.handles)
+        certified_plain_grid = (len(self.grids) == 1 and self._geometry_reuse.early_plan(
+            next(iter(self.grids)), self._normalized, next(iter(self.grids.values()))) is not None)
+        scroll_before = (() if certified_plain_grid
+                         else capture_scroll_hosts(self.backend.value, self.handles))
         receipts = []
         # A single Grid batch has not yet mutated any of its descendants.
         # Its rollback snapshot can also supply the original place_info()
@@ -595,7 +816,8 @@ class MountedMixedGrid:
                                     if self.backend is GridCommitBackend.KIVY else None),
                     kivy_window_coordinates=(self.backend is GridCommitBackend.KIVY),
                 )
-                self._bind_nested_scrolls(composition, scroll_before)
+                if not certified_plain_grid:
+                    self._bind_nested_scrolls(composition, scroll_before)
                 if deferred:
                     receipt = GridNativeCommitReceipt(
                         self.generation, tuple(p.node_id for p in full_batch),

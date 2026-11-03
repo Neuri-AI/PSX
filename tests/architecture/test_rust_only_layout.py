@@ -12,9 +12,13 @@ from pathlib import Path
 import pytest
 
 
-def test_legacy_sfle_directory_has_been_removed():
+def test_legacy_sfle_python_sources_have_been_removed():
     import psx
-    assert not (Path(psx.__file__).parent / "sfle").exists()
+    # A renamed package can leave bytecode caches in a working checkout.
+    # They must not be mistaken for shipped Python source or an entry point.
+    legacy = Path(psx.__file__).parent / "sfle"
+    assert not tuple(legacy.rglob("*.py"))
+    assert not tuple(legacy.rglob("*.pyi"))
 
 
 def test_rust_does_not_import_python_solver_during_loading_or_layout():

@@ -11,8 +11,12 @@ from collections.abc import Mapping
 from typing import Protocol
 from collections.abc import Callable
 from threading import get_ident
+from dataclasses import dataclass
+from collections import OrderedDict
 
-from psx.core.grid_contract import GRID_BREAKPOINTS, normalize_grid_props, normalize_grid_item_props, resolve_grid_item_props
+from psx.core.grid_contract import (GRID_BREAKPOINTS, normalize_grid_props,
+    normalize_grid_item_props, resolve_grid_item_props, validate_grid_breakpoints,
+    _at_breakpoint)
 from psx.core.layout_tree import NormalizedLayoutNode
 from psx.core.vnode import NodeKind
 from psx.markup.html_aliases import FORMATTING_TAGS
@@ -33,6 +37,100 @@ class GridNativeMeasurementSource(Protocol):
     def measure_width(self, node_id: str, width: float) -> IntrinsicSizes: ...
 
 
+@dataclass(frozen=True, slots=True)
+class GridMeasurementStructure:
+    grid: NormalizedLayoutNode
+    props: Mapping[str, object]
+    slots: tuple[GridSlot, ...]
+    ids: tuple[str, ...]
+    children: Mapping[str, NormalizedLayoutNode]
+    width_pattern: tuple[GridSlot, ...] | None = None
+    width_identities: Mapping[str, str] | None = None
+
+
+class GridStructureReuse:
+    """Cache immutable packing input per Grid and responsive interval.
+
+    This retains no measurements or rectangles: Cinnamon still computes all
+    widths and tracks. Native measurement and final Grid preparation share
+    this one validated structural projection instead of normalizing the same
+    thousands of GridItems repeatedly inside a resize transaction.
+    """
+
+    def __init__(self, limit=16):
+        self.limit = limit
+        self.entries = OrderedDict()
+        self._metadata = OrderedDict()
+
+    def clear(self):
+        self.entries.clear()
+        self._metadata.clear()
+
+    def prepare(self, grid, content_width, breakpoints, pixel_scale):
+        responsive_width = content_width / pixel_scale
+        validate_grid_breakpoints(breakpoints)
+        metadata = self._metadata.get(id(grid))
+        if metadata is None or metadata[0] is not grid:
+            items, responsive = [], False
+            for item in grid.effective_children:
+                if item.kind is not NodeKind.HOST or item.type != "GridItem":
+                    raise GridPackingError("Grid composition requires direct GridItem children.")
+                effective = item.effective_children
+                if len(effective) != 1:
+                    raise GridPackingError("GridItem requires exactly one content root.")
+                values = normalize_grid_item_props(item.source.props)
+                responsive |= any(isinstance(values[name], Mapping)
+                                  for name in ("span", "offset"))
+                items.append((path_identity(item.path), values, effective[0]))
+            metadata = (grid, tuple(items), responsive)
+            self._metadata[id(grid)] = metadata
+            while len(self._metadata) > self.limit:
+                self._metadata.popitem(last=False)
+        interval = tuple(name for name, value in breakpoints.items()
+                         if value <= responsive_width)
+        key = (id(grid), tuple(breakpoints.items()),
+               interval if metadata[2] else None, pixel_scale)
+        cached = self.entries.get(key)
+        if cached is not None and cached.grid is grid:
+            self.entries.move_to_end(key)
+            return cached
+        props = normalize_grid_props(grid.source.props)
+        ids, slots, children = [], [], {}
+        active = next(name for name in reversed(GRID_BREAKPOINTS)
+                      if breakpoints[name] <= responsive_width)
+        for identifier, values, child in metadata[1]:
+            ids.append(identifier)
+            slots.append(GridSlot(identifier, _at_breakpoint(values["span"], active),
+                                  _at_breakpoint(values["offset"], active)))
+            children[identifier] = child
+        if len(set(ids)) != len(ids):
+            raise GridPackingError("Duplicate Grid child identities.")
+        pattern = None
+        width_identities = None
+        if slots and type(slots[0].span) is int and 12 % slots[0].span == 0:
+            span = slots[0].span
+            if all(slot.span == span and slot.offset == 0 and slot.order == 0
+                   for slot in slots):
+                per_row = 12 // span
+                first = tuple(slots[:per_row])
+                remainder = len(slots) % per_row
+                tail = tuple(slots[-remainder:]) if remainder and len(slots) > per_row else ()
+                # Cinnamon distributes available gutters per packed row.
+                # A final partial row therefore has a different track width;
+                # retain that pattern rather than reusing a complete row.
+                pattern = first + tail
+                tail_ids = {slot.id for slot in tail}
+                width_identities = {
+                    slot.id: slot.id if slot.id in tail_ids else first[index % len(first)].id
+                    for index, slot in enumerate(slots)}
+        prepared = GridMeasurementStructure(
+            grid, props, tuple(slots), tuple(ids), children, pattern, width_identities)
+        self.entries[key] = prepared
+        while len(self.entries) > self.limit:
+            self.entries.popitem(last=False)
+        return prepared
+
+
 def measure_grid_native(
     grid: NormalizedLayoutNode,
     *,
@@ -48,6 +146,8 @@ def measure_grid_native(
     breakpoints: Mapping[str, object] = GRID_BREAKPOINTS,
     pixel_scale: float = 1.0,
     engine: object | None = None,
+    structure: GridMeasurementStructure | None = None,
+    structural_heights: Mapping[str, float] | None = None,
 ) -> PreparedGridMeasurement:
     """Perform real width-aware native measurement, then run Cinnamon Grid.
 
@@ -70,10 +170,12 @@ def measure_grid_native(
         raise GridPackingError("Grid content width must be definite and representable.")
     if type(pixel_scale) not in (int, float) or not isfinite(pixel_scale) or pixel_scale <= 0:
         raise GridPackingError("Grid native pixel scale must be finite and positive.")
-    props = normalize_grid_props(grid.source.props)
-    children = grid.effective_children
-    slots: list[GridSlot] = []
-    ids: list[str] = []
+    props = structure.props if structure is not None else normalize_grid_props(grid.source.props)
+    children = grid.effective_children if structure is None else ()
+    slots = list(structure.slots) if structure is not None else []
+    ids = list(structure.ids) if structure is not None else []
+    if structure is not None and structure.grid is not grid:
+        raise GridPackingError("Grid structural receipt belongs to a different tree.")
     for child in children:
         if child.kind is not NodeKind.HOST or child.type != "GridItem":
             raise GridPackingError("Grid native measurement requires direct GridItem children.")
@@ -108,16 +210,24 @@ def measure_grid_native(
 
     # Project without fabricating heights: row membership and horizontal
     # allocation are independent of vertical intrinsic measurements.
+    width_slots = (structure.width_pattern
+                   if structure is not None and structure.width_pattern else slots)
     widths = grid_widths(
-        slots, content_width,
+        width_slots, content_width,
         _pixel(props["column_gap"], "Grid.column_gap") * pixel_scale,
         engine=engine,
     )
+    retained = structural_heights or {}
+    if retained and (structure is None or not set(retained) <= set(ids)):
+        raise GridPackingError("Structural heights require matching Grid receipts.")
     requests = tuple(MeasurementRequest(
         identifier,
-        LayoutConstraints(AvailableSize(widths[identifier], True), AvailableSize(None, False)),
+        LayoutConstraints(AvailableSize(widths[
+            structure.width_identities[identifier]
+            if structure is not None and structure.width_identities else identifier], True),
+            AvailableSize(None, False)),
         generation, revisions[identifier],
-    ) for identifier in ids)
+    ) for identifier in ids if identifier not in retained)
     round_ = MeasurementRound(generation, requests, (), ())
 
     def measure(request: MeasurementRequest) -> MeasuredBox:
@@ -134,6 +244,8 @@ def measure_grid_native(
         current_generation=current_generation, constraints=constraints, rtl=rtl,
         breakpoints=breakpoints,
         pixel_scale=pixel_scale, engine=engine,
+        structure=structure,
+        structural_heights=retained,
     )
 
 

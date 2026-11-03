@@ -83,6 +83,28 @@ def test_scroll_offset_reentry_rehydrates_oncoming_cards():
     assert "item-29" not in cache.plan(**dict(kwargs, viewport_top=1050))
     assert "item-29/leaf" not in cache.plan(**dict(kwargs, viewport_top=1050))
 
+
+def test_sparse_native_acceptance_retains_structural_receipts_without_native_updates():
+    import pytest
+    roots, batch, widgets = case(30)
+    workset = GridViewportWorkset()
+    args = dict(root_ids=roots, batch=batch, widgets=widgets,
+                viewport_height=100, epoch=3, backend="qt")
+    workset.accept(**args, skipped=frozenset())
+    absent = frozenset(roots[8:])
+    before = workset._accepted[roots[-1]]
+    selected = tuple(p for p in batch if p.node_id.split("/")[0] not in absent)
+    sparse = dict(args, root_ids=roots[:8], batch=selected,
+                  widgets={p.node_id: widgets[p.node_id] for p in selected})
+    workset.accept(**sparse, skipped=frozenset(), retain_ids=absent)
+    assert workset._accepted[roots[-1]] is before
+    assert len(workset._accepted) == 30
+    # Retention cannot silently validate a new semantic epoch or backend.
+    with pytest.raises(RuntimeError, match="uncertified"):
+        workset.accept(**dict(sparse, epoch=4), skipped=frozenset(), retain_ids=absent)
+    with pytest.raises(RuntimeError, match="uncertified"):
+        workset.accept(**dict(sparse, backend="tk"), skipped=frozenset(), retain_ids=absent)
+
 def test_complex_css_and_native_controls_fail_closed():
     def node(props=None, kind=NodeKind.HOST, children=(), tag="Box"):
         return SimpleNamespace(kind=kind, type=tag,
@@ -124,3 +146,31 @@ def test_scroll_far_down_defers_safely_above_and_below_viewport():
     back = cache.plan(**args)
     assert "item-0" not in back
     assert "item-250" in back
+
+
+def test_hierarchical_bottom_bound_does_not_sum_sibling_offsets():
+    roots = ("item-0",)
+    widgets = {
+        "item-0": object(),
+        "item-0/a": object(),
+        "item-0/a/leaf": object(),
+        "item-0/b": object(),
+        "item-0/b/leaf": object(),
+    }
+    batch = (
+        place("item-0", 120, 20),
+        place("item-0/a", 100, 20),
+        place("item-0/a/leaf", 0, 20),
+        place("item-0/b", 100, 20),
+        place("item-0/b/leaf", 0, 20),
+    )
+    cache = GridViewportWorkset()
+    args = dict(
+        root_ids=roots, batch=batch, widgets=widgets,
+        viewport_height=120, epoch=1, backend="qt", safe_ids=set(roots),
+    )
+    cache.accept(**args, skipped=frozenset())
+    # Actual group bottom is 240 (120 + 100 + 20): safely above low=304.
+    # Summing sibling offsets would overestimate to 340 and block deferral.
+    skipped = cache.plan(**dict(args, viewport_top=400))
+    assert skipped == frozenset(widgets)
