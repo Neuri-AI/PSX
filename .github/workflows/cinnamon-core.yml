@@ -167,7 +167,7 @@ jobs:
         run: |
           python -m pip install --no-deps /tmp/sfle-native-wheels/*.whl
           unzip -l /tmp/sfle-native-wheels/*.whl | tail -n 24
-          python -m pip show -f psx-sfle-native
+          python -m pip show -f velto-cinnamon-core
       - name: Verify installed native module outside editable source checkout
         env:
           QT_QPA_PLATFORM: offscreen
