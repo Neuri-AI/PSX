@@ -797,11 +797,13 @@ class QtRenderer:
         self._psx_native_flow_viewport_workset = None
         self._psx_scroll_after_commit = {}
         self._psx_native_flow_deferred_ids = frozenset()
+        self._psx_native_grid_deferred_total = 0
+        self._psx_in_native_viewport_resize = False
         # A full unmount/remount must drop cached VNode blueprints and old
         # native intrinsic identities; a later tree always starts fresh.
         for cache_name in (
             "_psx_grid_intrinsic_reuse", "_psx_grid_flow_blueprints",
-            "_sfle_structural_snapshot_reuse",
+            "_psx_accepted_grid_geometry", "_sfle_structural_snapshot_reuse",
         ):
             cache = getattr(self, cache_name, None)
             if cache is not None:
