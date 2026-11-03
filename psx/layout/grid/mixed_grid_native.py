@@ -147,12 +147,16 @@ class MountedMixedGrid:
             worksets = getattr(
                 self.renderer, "_psx_mixed_grid_viewport_cache", None,
             ) or {}
-            deferred_flows = select_pre_measurement_deferred_flows(
-                getattr(self, "_normalized", None), grid,
-                geometry_reuse.latest(node_id), worksets.get(node_id),
-                viewport_height=self.renderer._sfle_constraints.height.value,
-                epoch=self._intrinsic_epoch,
+            structural_plan = geometry_reuse.early_plan(
+                node_id, self._normalized, grid,
             )
+            if structural_plan is not None:
+                deferred_flows = select_pre_measurement_deferred_flows(
+                    self._normalized, grid,
+                    geometry_reuse.latest(node_id), worksets.get(node_id),
+                    viewport_height=self.renderer._sfle_constraints.height.value,
+                    epoch=self._intrinsic_epoch, static_plan=structural_plan,
+                )
         # The native baseline is shared by all width probes in this one
         # transaction, including re-entrant nested Grid compositions.
         if self.backend is GridCommitBackend.TK and not getattr(self, "_tk_idle_synced", False):
