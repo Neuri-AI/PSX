@@ -1,0 +1,1060 @@
+"""Recursive Grid composition using Cinnamon as the only geometry authority.
+
+Each Grid computes its own horizontal allocations before measuring descendants.
+A nested Grid's intrinsic height is the output of its own Cinnamon plan, not a
+native layout manager estimate. Native ports supply only terminal leaf metrics.
+"""
+from __future__ import annotations
+
+from dataclasses import dataclass, replace
+from collections import OrderedDict
+from collections.abc import Callable, Mapping
+from psx.core.grid_contract import GRID_BREAKPOINTS
+from typing import Protocol
+
+from psx.core.layout_tree import NormalizedLayoutNode
+from psx.core.vnode import NodeKind
+
+from psx.layout.grid.contracts import GridPackingError
+from psx.layout.grid.grid_native_measurement import measure_grid_native
+from psx.layout.grid.grid_flex_composition import ComposedFlex, prepare_composed_flex
+from psx.layout.grid.grid_tree_measurement import PreparedGridMeasurement
+from psx.layout.grid.grid_native_plan import GridNativePlacement
+from psx.layout.contracts.model import IntrinsicSizes, MeasuredBox, LayoutConstraints, AvailableSize
+from psx.layout.runtime.native_measurement import NativeMeasurementPort
+from psx.layout.projection.native_layout_snapshot import prepare_native_layout_snapshot
+from psx.markup.html_aliases import FORMATTING_TAGS
+from psx.layout.projection.native_layout_snapshot import path_identity
+
+
+class NativeLeafMeasurement(Protocol):
+    def __call__(self, item_id: str, node: NormalizedLayoutNode, width: float) -> IntrinsicSizes: ...
+
+
+@dataclass(frozen=True, slots=True)
+class ComposedFlow:
+    prepared: object
+    result: object
+    content_height: float
+    nested_grids: dict[str, "ComposedGrid"]
+    # ``None`` means that this Flow needs normal width-dependent measurement.
+    # Otherwise this is the minimum outer width at which every terminal leaf
+    # is proven not to wrap.  Any normal-block layout at or above that width
+    # has the same accepted intrinsic height.
+    unwrapped_at_width: float | None = None
+    minimum_content_height: float = 0.0
+    intrinsic_receipts: tuple = ()
+
+
+
+
+
+class FlowBlueprintReuse:
+    """Bounded, renderer-owned reuse of immutable GridItem Flow structure.
+
+    A viewport resize changes the input width/generation, not the mounted
+    VNodes or their CSS projection. Cache only the *structural* snapshot;
+    leaf measurements, width-dependent layout solves and native geometry
+    are always fresh. No background work and no native handle retention.
+    """
+
+    def __init__(self, limit: int = 4096, *, solved_limit: int = 8192):
+        # Structural blueprints have one key per mounted Flow. Solved
+        # geometry has a key per Flow *and containing width*, so resizing
+        # through nine widths with 500 cards needs >4096 receipts.
+        # Keep both caches bounded and independently configurable.
+        self.limit = limit
+        self._entries = OrderedDict()
+        from psx.layout.grid.grid_solved_reuse import SolvedTextSubtreeReuse
+        self.solved = SolvedTextSubtreeReuse(limit=solved_limit)
+        from psx.layout.grid.grid_native_measurement import GridStructureReuse
+        self.grids = GridStructureReuse()
+
+    def clear(self):
+        self._entries.clear()
+        self.solved.clear()
+        self.grids.clear()
+
+    def prepare(self, flow, constraints, generation, viewport_constraints, epoch, pixel_scale=1.0):
+        # Include the actual normalized descendants, not just a parent
+        # VNode. Nested component/hooks reconciliation may replace children
+        # while retaining the outer element identity.
+        # VNode props, resolved CSS and stylesheet are immutable snapshots.
+        # The cached PreparedNativeLayoutSnapshot itself strongly retains
+        # every VNode, so object identities cannot be recycled while an
+        # entry remains live. Avoid serializing a complete CSS registry
+        # through repr() for every descendant on every resize.
+        from psx.layout.contracts.lengths import Length, LengthKind
+        viewport_kinds = {
+            LengthKind.VW, LengthKind.VH, LengthKind.VMIN, LengthKind.VMAX,
+        }
+        viewport_suffixes = ("vw", "vh", "vmin", "vmax")
+
+        def has_viewport_unit(value):
+            if isinstance(value, Length):
+                return value.kind in viewport_kinds
+            return (isinstance(value, str)
+                    and value.strip().lower().endswith(viewport_suffixes))
+
+        fingerprint = []
+        cacheable = True
+        def visit(node):
+            nonlocal cacheable
+            origin = node.source
+            fingerprint.append((
+                node.path, id(origin), id(origin.props),
+                id(origin.css_computed), id(origin.css_stylesheet),
+                id(origin.css_source),
+            ))
+            if cacheable:
+                computed = origin.css_computed
+                if any(has_viewport_unit(value) for value in origin.props.values()):
+                    cacheable = False
+                elif computed is not None:
+                    properties = getattr(computed, "properties", None)
+                    specified = getattr(computed, "specified", ())
+                    if properties is not None and any(
+                        has_viewport_unit(properties[name])
+                        for name in specified if name in properties
+                    ):
+                        cacheable = False
+            for child in node.effective_children:
+                visit(child)
+        visit(flow)
+        signature = tuple(fingerprint)
+        key = (id(flow.source), path_identity(flow.path), pixel_scale)
+        cached = self._entries.get(key) if cacheable else None
+        if cached is not None:
+            retained_source, saved_signature, saved_epoch, saved_prepared, saved_css = cached
+            if retained_source is flow.source and saved_signature == signature and saved_epoch == epoch:
+                self._entries.move_to_end(key)
+                prepared = replace(
+                    saved_prepared,
+                    snapshot=replace(
+                        saved_prepared.snapshot, generation=generation,
+                        constraints=constraints,
+                    ),
+                    viewport_constraints=viewport_constraints,
+                )
+                # The CSS root can change its width while retaining a
+                # content-height-auto constraint. Preserve that height
+                # definiteness, but rebind the current containing width.
+                current_constraints = replace(
+                    saved_css.constraints, width=constraints.width,
+                )
+                return prepared, replace(
+                    saved_css, generation=generation,
+                    constraints=current_constraints,
+                )
+        prepared = prepare_native_layout_snapshot(
+            flow, constraints, generation=generation,
+            viewport_constraints=viewport_constraints,
+        )
+        normalized = prepared.css_geometry_snapshot(pixel_scale=pixel_scale)
+        if cacheable:
+            self._entries[key] = (
+                flow.source, signature, epoch, prepared, normalized,
+            )
+            self._entries.move_to_end(key)
+            while len(self._entries) > self.limit:
+                self._entries.popitem(last=False)
+        return prepared, normalized
+
+
+class _FlowContainingWidths:
+    """Lazy O(N) aggregate width resolver for nested Grids in one Flow.
+
+    The old implementation rebuilt a node index and walked every ancestor
+    for every Grid: O(G*N + sum(depth)). Memoize each ancestor's content
+    width once, while retaining exact CSS percentage reference semantics.
+    Invalid styles are still checked only on ancestors of a requested Grid.
+    """
+
+    def __init__(self, snapshot, width):
+        self.nodes = {node.node_id: node for node in snapshot.nodes}
+        self.width = width
+        self.after = {}
+
+    def resolve(self, node_id):
+        parent_id = self.nodes[node_id].parent_id
+        if parent_id is None:
+            return self.width
+        ancestors = []
+        current = parent_id
+        while current is not None and current not in self.after:
+            ancestors.append(current)
+            current = self.nodes[current].parent_id
+        available = self.after[current] if current is not None else self.width
+        from psx.layout.contracts.lengths import LengthKind, parse_length
+        for ancestor_id in reversed(ancestors):
+            style = dict(self.nodes[ancestor_id].style)
+            containing = available
+            explicit = style.get("layout_width")
+            if explicit is not None:
+                specified = parse_length(explicit)
+                if specified.kind is LengthKind.PX:
+                    available = float(specified.value)
+                elif specified.kind is LengthKind.PERCENT:
+                    available *= float(specified.value)
+                elif specified.kind not in (LengthKind.AUTO, LengthKind.NONE):
+                    raise GridPackingError(
+                        "Nested Grid containing width is not resolvable."
+                    )
+                # Explicit 'auto'/'none' preserve the previous behavior:
+                # do not subtract edges on this branch.
+                self.after[ancestor_id] = available
+                continue
+            for group in ("margin", "border", "padding"):
+                for side in ("left", "right"):
+                    value = style.get(f"layout_{group}_{side}")
+                    if value is None:
+                        continue
+                    parsed = parse_length(value)
+                    if parsed.kind is LengthKind.PX:
+                        available -= float(parsed.value)
+                    elif parsed.kind is LengthKind.PERCENT:
+                        available -= containing * float(parsed.value)
+                    else:
+                        raise GridPackingError(
+                            "Nested Grid container edges require concrete lengths."
+                        )
+            available = max(0.0, available)
+            self.after[ancestor_id] = available
+        return available
+
+
+def nested_flow_grid_width(snapshot, node_id, width, *, resolver=None):
+    """Resolve nested Grid containing width without repeating ancestor walks."""
+    if resolver is None:
+        resolver = _FlowContainingWidths(snapshot, width)
+    return resolver.resolve(node_id)
+
+
+def prepare_composed_flow(flow, *, width, generation, measure_leaf, engine,
+                          viewport_constraints=None, measure_grid=None,
+                          flow_reuse=None, invalidation_epoch=0, pixel_scale=1.0,
+                          kivy_text_basis=False):
+    """Measure an HTML block subtree using Cinnamon's flow layout kernel."""
+    constraints = LayoutConstraints(AvailableSize(width, True),
+                                    AvailableSize(None, False))
+    if flow_reuse is None:
+        prepared = prepare_native_layout_snapshot(
+            flow, constraints, generation=generation,
+            viewport_constraints=viewport_constraints,
+        )
+        normalized = prepared.css_geometry_snapshot(pixel_scale=pixel_scale)
+    else:
+        prepared, normalized = flow_reuse.prepare(
+            flow, constraints, generation, viewport_constraints,
+            invalidation_epoch, pixel_scale=pixel_scale,
+        )
+        # Only pure, explicitly immutable text subtrees may skip native
+        # measurements and a Cinnamon solve. Everything with Scroll, Grid,
+        # interactive native controls or viewport-dependent CSS executes
+        # the regular complete measurement pipeline.
+        cached = flow_reuse.solved.lookup(
+            flow, width, generation, invalidation_epoch,
+            pixel_scale=pixel_scale, prepared=prepared,
+        )
+        if cached is not None:
+            return cached
+    if normalized.nodes[0].component == "Flex":
+        # Grid allocates a border-box width. An auto-sized CSS Flex host
+        # must give Cinnamon its *content* width, excluding its own edges.
+        # Otherwise stretched children paint across the parent's padding.
+        from psx.layout.contracts.lengths import Length, LengthKind
+        root, *rest = normalized.nodes
+        style = dict(root.style)
+        if "layout_width" not in style and "width" not in style:
+            def edge(group, side):
+                value = style.get(f"layout_{group}_{side}")
+                if value is None:
+                    return 0.0
+                if isinstance(value, Length):
+                    if value.kind is LengthKind.PX:
+                        return float(value.value)
+                    if value.kind is LengthKind.PERCENT:
+                        return width * float(value.value)
+                if isinstance(value, (int, float)) and not isinstance(value, bool):
+                    return float(value)
+                raise GridPackingError(
+                    "CSS Flex auto-width edges must resolve against GridItem width."
+                )
+            horizontal = sum(
+                edge(group, side)
+                for group in ("padding", "border")
+                for side in ("left", "right")
+            )
+            style["layout_width"] = max(0.0, width - horizontal)
+            normalized = replace(
+                normalized, nodes=(
+                    replace(root, style=tuple(sorted(style.items()))), *rest
+                ),
+            )
+    if normalized.nodes[0].component not in (*FORMATTING_TAGS, "Flex"):
+        raise GridPackingError("GridItem flow root must retain block or CSS Flex semantics.")
+    identities = {}
+    def visit(node):
+        identities[path_identity(node.path)] = node
+        for child in node.effective_children:
+            visit(child)
+    visit(flow)
+    measurements = []
+    nested_grids = {}
+    containing_widths = _FlowContainingWidths(normalized, width)
+    # Reuse actual native leaf measurements only during this flow composition.
+    # Subsequent commits and invalidations create a new cache.
+    measured_leaves: dict[tuple[str, float], IntrinsicSizes] = {}
+
+    def measure_flow_leaf(identifier, origin, leaf_width):
+        key = (identifier, leaf_width)
+        if key not in measured_leaves:
+            measured_leaves[key] = measure_leaf(identifier, origin, leaf_width)
+        return measured_leaves[key]
+
+    for node in normalized.nodes[1:]:
+        if node.component in FORMATTING_TAGS or node.component == "Flex":
+            continue
+        origin = identities[node.node_id]
+        if origin.type == "Grid":
+            if measure_grid is None:
+                raise GridPackingError("Nested Grid flow requires a Cinnamon Grid measurement callback.")
+            available = nested_flow_grid_width(
+                normalized, node.node_id, width, resolver=containing_widths,
+            )
+            nested = measure_grid(origin, available)
+            nested_grids[node.node_id] = nested
+            height = nested.content_height
+            intrinsic = IntrinsicSizes(0, available, 0, height, available, height)
+        else:
+            if origin.effective_children:
+                raise GridPackingError("Nested GridItem flow supports native leaves and Grid hosts.")
+            intrinsic = measure_flow_leaf(node.node_id, origin, width)
+        if not isinstance(intrinsic, IntrinsicSizes):
+            raise GridPackingError("GridItem flow leaf requires native IntrinsicSizes.")
+        measurements.append(MeasuredBox(node.node_id, intrinsic,
+            LayoutConstraints(AvailableSize(width, True),
+                              AvailableSize(None, False)), generation))
+    if kivy_text_basis:
+        # A semantic <p>/<span> becomes an inner Flex formatting context.
+        # Without its intrinsic text width Cinnamon stretches EACH child to
+        # the entire available row. The second child (greetings/dates) is
+        # consequently laid out entirely beyond the right edge. Measure using
+        # the actual mounted Kivy Text texture, never a guessed character
+        # width or an engine-specific fixed offset.
+        from psx.layout.contracts.lengths import Length, LengthKind
+        measured_widths = {
+            receipt.node_id: receipt.intrinsic.preferred_width
+            for receipt in measurements
+        }
+        nodes_by_id = {node.node_id: node for node in normalized.nodes}
+        children_by_id = {}
+        for node in normalized.nodes:
+            children_by_id.setdefault(node.parent_id, []).append(node)
+        adjusted = []
+        for node in normalized.nodes:
+            parent = nodes_by_id.get(node.parent_id)
+            style = dict(node.style)
+            origin = identities.get(node.node_id)
+            parent_style = dict(parent.style) if parent is not None else {}
+            is_row = (parent is not None and parent.component == "Flex"
+                      and parent_style.get("direction", "row") in ("row", "row-reverse"))
+            # A percentage width on a flex item is its preferred main size,
+            # not an immutable box width: CSS flex-shrink must still be able
+            # to make room for a trailing min-width sibling (activity date).
+            if (is_row and origin is not None and
+                    origin.kind is NodeKind.HOST and
+                    origin.type in FORMATTING_TAGS and node.component == "Flex"
+                    and "flex_basis" not in style):
+                preferred = style.get("layout_width", style.get("width"))
+                if isinstance(preferred, Length) and preferred.kind is LengthKind.PERCENT:
+                    # A 100%-width description in a row cannot consume the
+                    # space explicitly reserved by the trailing date's
+                    # min-width and the authored CSS gap. Project that
+                    # *available* width as a max constraint for Cinnamon
+                    # instead of moving/clipping widgets after layout.
+                    siblings = children_by_id.get(parent.node_id, ())
+                    from psx.layout.contracts.lengths import parse_length
+                    reserved = 0.0
+                    for sibling in siblings:
+                        if sibling.node_id == node.node_id:
+                            continue
+                        sibling_style = dict(sibling.style)
+                        minimum = sibling_style.get(
+                            "layout_min_width", sibling_style.get("min_width")
+                        )
+                        if minimum is not None:
+                            parsed = parse_length(minimum)
+                            if parsed.kind is LengthKind.PX:
+                                reserved += float(parsed.value)
+                    gap = parent_style.get("column_gap", parent_style.get("gap"))
+                    if gap is not None:
+                        parsed_gap = parse_length(gap)
+                        if parsed_gap.kind is LengthKind.PX:
+                            reserved += float(parsed_gap.value) * max(0, len(siblings) - 1)
+                    if reserved:
+                        containing = containing_widths.resolve(node.node_id)
+                        capacity = max(0.0, containing - reserved)
+                        authored_max = style.get(
+                            "layout_max_width", style.get("max_width"),
+                        )
+                        if authored_max is not None:
+                            specified_max = parse_length(authored_max)
+                            if specified_max.kind is LengthKind.PX:
+                                capacity = min(capacity, float(specified_max.value))
+                        style["layout_max_width"] = Length.px(capacity)
+                        node = replace(node, style=tuple(sorted(style.items())))
+            if (is_row and origin is not None and
+                    origin.kind is NodeKind.HOST and
+                    origin.type in FORMATTING_TAGS and
+                    node.component == "Flex" and
+                    "layout_width" not in style and "width" not in style and
+                    "flex_basis" not in style):
+                descendants = children_by_id.get(node.node_id, [])
+                # Only a one-text-child formatting context is intrinsically
+                # projected here. Other containers retain Cinnamon's native
+                # sizing algorithm and receive no fabricated measurements.
+                if len(descendants) == 1 and descendants[0].node_id in measured_widths:
+                    leaf = descendants[0]
+                    natural = measure_flow_leaf(
+                        leaf.node_id, identities[leaf.node_id], None,
+                    ).preferred_width
+                    for group in ("padding", "border"):
+                        for side in ("left", "right"):
+                            edge = style.get(f"layout_{group}_{side}")
+                            if isinstance(edge, Length) and edge.kind is LengthKind.PX:
+                                natural += edge.value
+                    style["layout_width"] = Length.px(natural)
+                    node = replace(node, style=tuple(sorted(style.items())))
+            adjusted.append(node)
+        normalized = replace(normalized, nodes=tuple(adjusted))
+    snapshot = replace(normalized, measurements=tuple(measurements))
+    if normalized.nodes[0].component == "Flex":
+        from psx.layout.runtime.width_dependent_intrinsic_measurement import (
+            auto_height_measurement_ids, compute_width_dependent,
+            seed_unconstrained_width_measurements,
+        )
+        width_sensitive = auto_height_measurement_ids(snapshot)
+        measured_ids = {item.node_id for item in measurements}
+        callbacks = {
+            node.node_id: (
+                lambda assigned_width, origin=identities[node.node_id]:
+                    measure_flow_leaf(path_identity(origin.path), origin, assigned_width)
+            )
+            for node in normalized.nodes[1:]
+            if node.node_id in measured_ids
+            and (node.node_id in width_sensitive
+                 or identities[node.node_id].type == "Grid")
+        }
+        snapshot = seed_unconstrained_width_measurements(
+            snapshot, frozenset(callbacks),
+        )
+        solved = compute_width_dependent(
+            engine, snapshot, callbacks,
+            current_generation=lambda: generation,
+        )
+    else:
+        if getattr(engine, "backend_name", None) == "rust":
+            solved = engine.compute(snapshot)
+        else:
+            from psx.layout.fallback.measured_block_snapshot import compute_measured_block_snapshot
+            solved = compute_measured_block_snapshot(
+                snapshot, flex_engine=engine,
+                measure_width=lambda identifier, assigned_width: measure_flow_leaf(
+                    identifier, identities[identifier], assigned_width,
+                ),
+            )
+    root_id = normalized.nodes[0].node_id
+    solved_boxes = dict(solved.boxes)
+    # Keep a deliberately narrow proof: terminal leaves must all have a real
+    # definite-width probe whose preferred width fits that probe, and the
+    # subtree must remain ordinary block formatting.  This excludes Flex,
+    # nested Grid and Kivy's unconstrained text basis.  It is enough for the
+    # common card case while failing closed for every dynamic layout.
+    unwrapped_at_width = None
+    if (normalized.nodes[0].component in FORMATTING_TAGS
+            and not nested_grids and measured_leaves):
+        probes = {}
+        intrinsic_by_id = {}
+        unwrapped = getattr(measure_leaf, "unwrapped", None)
+        natural_metrics = {}
+        for (identifier, probe_width), intrinsic in tuple(measured_leaves.items()):
+            if not isinstance(probe_width, (int, float)) or probe_width < 0:
+                continue
+            if unwrapped is False:
+                continue
+            if callable(unwrapped):
+                if identifier not in natural_metrics:
+                    natural_metrics[identifier] = unwrapped(identifier, identities[identifier])
+                natural = natural_metrics[identifier]
+                if natural.preferred_height != intrinsic.preferred_height:
+                    continue
+                intrinsic = natural
+            if intrinsic.preferred_width <= probe_width:
+                prior = probes.get(identifier)
+                probes[identifier] = (probe_width if prior is None
+                                      else min(prior, probe_width))
+                intrinsic_by_id[identifier] = intrinsic
+        # ``LayoutNode`` is a flat snapshot (parent ids, not child lists).
+        # Measurements are emitted only for terminal native leaves, which is
+        # exactly the set the proof needs to cover.
+        terminal_ids = {receipt.node_id for receipt in measurements}
+        if terminal_ids and terminal_ids <= set(probes):
+            # Turn terminal content widths into a certificate for the outer
+            # Flow.  Only concrete px edges are admitted; percentage/auto
+            # edges, margins and unknown CSS leave this optimization off.
+            from psx.layout.contracts.lengths import Length, LengthKind
+            nodes_by_id = {node.node_id: node for node in normalized.nodes}
+
+            def px_edge(style, name):
+                value = style.get(name)
+                if value is None:
+                    return 0.0
+                if isinstance(value, Length) and value.kind is LengthKind.PX:
+                    return float(value.value)
+                if isinstance(value, (int, float)) and not isinstance(value, bool):
+                    return float(value)
+                return None
+
+            required = 0.0
+            certified = True
+            for identifier in terminal_ids:
+                inset = 0.0
+                current = nodes_by_id.get(identifier)
+                while current is not None:
+                    style = dict(current.style)
+                    for group in ("padding", "border"):
+                        for side in ("left", "right"):
+                            edge = px_edge(style, f"layout_{group}_{side}")
+                            if edge is None or edge < 0:
+                                certified = False
+                                break
+                            inset += edge
+                        if not certified:
+                            break
+                    # Margins alter the available/reference width in ways
+                    # that this compact receipt intentionally does not model.
+                    if certified:
+                        for side in ("left", "right"):
+                            name = f"layout_margin_{side}"
+                            if name in style:
+                                margin = px_edge(style, name)
+                                if margin is None or margin != 0.0:
+                                    certified = False
+                                    break
+                    if not certified:
+                        break
+                    current = nodes_by_id.get(current.parent_id)
+                if not certified:
+                    break
+                required = max(required, intrinsic_by_id[identifier].preferred_width + inset)
+            if certified:
+                # Native probes certify the terminal text's unwrapped height.
+                # Adding ancestor edges can put the *outer* threshold above
+                # today's Flow width. Retain that future-width certificate;
+                # callers still require the new allocation to meet it. Losing
+                # it here made thousands of already measured short labels
+                # permanently ineligible after a narrow initial window.
+                unwrapped_at_width = float(required)
+    composition = ComposedFlow(
+        prepared, solved, solved_boxes[root_id].border.height,
+        nested_grids, unwrapped_at_width,
+        max(0.0, solved_boxes[root_id].border.height - sum(
+            max(0.0, solved_boxes[receipt.node_id].border.height
+                - receipt.intrinsic.min_content_height)
+            for receipt in measurements
+        )) if not nested_grids else 0.0,
+        tuple(measurements),
+    )
+    if flow_reuse is not None:
+        flow_reuse.solved.stage(
+            flow, width, invalidation_epoch, composition,
+            pixel_scale=pixel_scale,
+        )
+    return composition
+
+
+@dataclass(frozen=True, slots=True)
+class ComposedGrid:
+    grid: NormalizedLayoutNode
+    prepared: PreparedGridMeasurement
+    nested: dict[str, "ComposedGrid"]
+    nested_flex: dict[str, ComposedFlex]
+    nested_flow: dict[str, ComposedFlow]
+    nested_scroll: dict[str, tuple[ComposedFlow, float, float, float]]
+    content_height: float
+    # One or more offscreen Flow heights came from an older accepted
+    # width. This result is temporary, not eligible for exact caching.
+    provisional_ids: frozenset[str] = frozenset()
+    content_width: float = 0.0
+    # Track/item rectangles and extent are current-width exact, but these P2
+    # Flow detail receipts intentionally retain an older width. They can be
+    # cached structurally and must never reach a native setter until promoted.
+    native_deferred_flows: frozenset[str] = frozenset()
+    # A compressed Cinnamon track receipt can expose its native workset
+    # directly while retaining indexed geometry for every logical GridItem.
+    viewport_roots: tuple[str, ...] | None = None
+
+
+def prepare_composed_grid(
+    grid: NormalizedLayoutNode,
+    *,
+    content_width: float,
+    generation: int,
+    current_generation: int,
+    measure_leaf: NativeLeafMeasurement,
+    is_ui_thread: Callable[[], bool],
+    breakpoints: Mapping[str, object] = GRID_BREAKPOINTS,
+    engine: object | None = None,
+    viewport_constraints: LayoutConstraints | None = None,
+    flow_reuse: FlowBlueprintReuse | None = None,
+    invalidation_epoch: int = 0,
+    pixel_scale: float = 1.0,
+    kivy_text_basis: bool = False,
+    deferred_flows: Mapping[str, ComposedFlow] | None = None,
+    reusable_flows: Mapping[str, ComposedFlow] | None = None,
+) -> ComposedGrid:
+    """Measure nested Grid children bottom-up using parent-allocated widths.
+
+    Resolved Grid widths are recomputed on each transaction, independently of
+    viewport width. Only a single primitive or nested Grid is currently a
+    valid GridItem content root; unsupported Flex/Scroll stays fail-closed.
+    """
+    if grid.kind is not NodeKind.HOST or grid.type != "Grid":
+        raise GridPackingError("Nested composition requires an explicit Grid host.")
+    if not is_ui_thread():
+        raise GridPackingError("Grid composition requires the renderer UI thread.")
+    structure = (flow_reuse.grids.prepare(grid, content_width, breakpoints, pixel_scale)
+                 if flow_reuse is not None else None)
+    participants = grid.effective_children if structure is None else ()
+    child_by_id = {}
+    for item in participants:
+        if item.kind is not NodeKind.HOST or item.type != "GridItem":
+            raise GridPackingError("Grid composition requires direct GridItem children.")
+        effective = item.effective_children
+        if len(effective) != 1:
+            raise GridPackingError("GridItem requires exactly one content root.")
+        child_by_id[path_identity(item.path)] = effective[0]
+    if structure is not None:
+        child_by_id = structure.children
+    nested: dict[str, ComposedGrid] = {}
+    nested_flex: dict[str, ComposedFlex] = {}
+    nested_flow: dict[str, ComposedFlow] = {}
+    nested_scroll: dict[str, tuple[ComposedFlow, float, float]] = {}
+    native_deferred_flows = set()
+
+    class Source:
+        def port(self):
+            return NativeMeasurementPort(
+                is_ui_thread,
+                lambda request: MeasuredBox(
+                    request.node_id,
+                    self.measure_width(request.node_id, request.constraints.width.value),
+                    request.constraints,
+                    request.revision,
+                ),
+            )
+
+        def measure_width(self, identifier, width):
+            child = child_by_id[identifier]
+            if (deferred_flows is not None and identifier in deferred_flows
+                    and reusable_flows is not None and identifier in reusable_flows):
+                # Exact structural height is certified independently of
+                # detailed offscreen rectangles. Keep that immutable receipt
+                # instead of issuing a Cinnamon subtree solve per P2 card.
+                flow = reusable_flows[identifier]
+                nested_flow[identifier] = flow
+                native_deferred_flows.add(identifier)
+                return IntrinsicSizes(0, width, 0, flow.content_height,
+                                      width, flow.content_height)
+            if deferred_flows is not None and identifier in deferred_flows:
+                # P2 was proven invisible even under a zero-height lower
+                # bound. Reusing the last native-certified Flow here avoids
+                # expensive native width probes and the Rust subtree solve.
+                # This height is deliberately NOT a current-width receipt.
+                # P2 does not reach a native setter/readback in this
+                # transaction.  Rebinding thousands of immutable old-width
+                # Flow receipts solely to stamp ``generation`` allocates a
+                # full LayoutResult per card and recreates the O(total)
+                # resize cost we are avoiding.  The enclosing composition is
+                # marked provisional and cannot enter the exact cache.
+                flow = deferred_flows[identifier]
+                nested_flow[identifier] = flow
+                height = flow.content_height
+                return IntrinsicSizes(0, width, 0, height, width, height)
+            if reusable_flows is not None and identifier in reusable_flows:
+                # The native text metrics are width invariant within this
+                # certificate. Horizontal rectangles still belong to Cinnamon
+                # and must be recomputed at the new width before publication.
+                prior = reusable_flows[identifier]
+                constraints = LayoutConstraints(
+                    AvailableSize(width, True), AvailableSize(None, False))
+                prepared_flow = replace(
+                    prior.prepared,
+                    snapshot=replace(prior.prepared.snapshot,
+                                     generation=generation, constraints=constraints),
+                    viewport_constraints=viewport_constraints,
+                )
+                native_metrics = {receipt.node_id: receipt.intrinsic
+                                  for receipt in prior.intrinsic_receipts}
+                if native_metrics:
+                    snapshot = replace(
+                        prepared_flow.css_geometry_snapshot(pixel_scale=pixel_scale),
+                        measurements=tuple(replace(receipt, constraints=constraints,
+                                                   revision=generation)
+                                           for receipt in prior.intrinsic_receipts),
+                    )
+                    if getattr(engine, "backend_name", None) == "rust":
+                        solved_flow = engine.compute(snapshot)
+                    else:
+                        from psx.layout.fallback.measured_block_snapshot import compute_measured_block_snapshot
+                        solved_flow = compute_measured_block_snapshot(
+                            snapshot, flex_engine=engine,
+                            measure_width=lambda key, assigned: native_metrics[key],
+                        )
+                    flow_root = snapshot.nodes[0].node_id
+                    height = dict(solved_flow.boxes)[flow_root].border.height
+                    if height == prior.content_height:
+                        flow = replace(prior, prepared=prepared_flow, result=solved_flow)
+                        nested_flow[identifier] = flow
+                        return IntrinsicSizes(0, width, 0, height, width, height)
+            if child.kind is NodeKind.HOST and child.type == "Scroll":
+                if engine is None:
+                    raise GridPackingError("Scroll-in-Grid requires Cinnamon layout.")
+                roots = child.effective_children
+                if len(roots) != 1 or roots[0].type not in FORMATTING_TAGS:
+                    raise GridPackingError(
+                        "GridItem Scroll requires one HTML-like block content root."
+                    )
+                from psx.layout.contracts.lengths import LengthKind, parse_length, resolve_viewport_length
+                source = child.source.props
+                requested = source.get("layout_height", source.get("height"))
+                flow = prepare_composed_flow(
+                    roots[0], width=width, generation=generation,
+                    measure_leaf=measure_leaf, engine=engine,
+                    viewport_constraints=viewport_constraints,
+                    flow_reuse=flow_reuse, invalidation_epoch=invalidation_epoch,
+                    pixel_scale=pixel_scale,
+                    kivy_text_basis=kivy_text_basis,
+                    measure_grid=lambda subgrid, grid_width:
+                        prepare_composed_grid(
+                            subgrid, content_width=grid_width,
+                            generation=generation, current_generation=current_generation,
+                            measure_leaf=measure_leaf, is_ui_thread=is_ui_thread,
+                            breakpoints=breakpoints, engine=engine,
+                            viewport_constraints=viewport_constraints,
+                            flow_reuse=flow_reuse, invalidation_epoch=invalidation_epoch,
+                            pixel_scale=pixel_scale,
+                            kivy_text_basis=kivy_text_basis,
+                        ),
+                )
+                height = flow.content_height
+                if requested is not None:
+                    parsed = parse_length(requested)
+                    if parsed.kind in (
+                        LengthKind.VW, LengthKind.VH, LengthKind.VMIN, LengthKind.VMAX,
+                    ):
+                        if viewport_constraints is None or (
+                            viewport_constraints.width.value is None
+                            or viewport_constraints.height.value is None
+                        ):
+                            raise GridPackingError(
+                                "Viewport-sized Scroll needs definite window dimensions."
+                            )
+                        parsed = resolve_viewport_length(
+                            parsed, viewport_constraints.width.value,
+                            viewport_constraints.height.value,
+                        )
+                    if parsed.kind is not LengthKind.PX or parsed.value <= 0:
+                        raise GridPackingError(
+                            "GridItem Scroll height requires a definite positive size."
+                        )
+                    height = float(parsed.value) * (
+                        pixel_scale if parse_length(requested).kind is LengthKind.PX else 1.0
+                    )
+                # A fixed-height CSS content root may still have descendants
+                # overflowing its border box. Scroll extent is the union of
+                # actual Cinnamon descendant rectangles, not just root height.
+                # Preserve the root's CSS box geometry independently.
+                from psx.layout.contracts.model import Rect
+                boxes = dict(flow.result.boxes)
+                root_id = flow.prepared.snapshot.nodes[0].node_id
+                origin_y = boxes[root_id].border.y
+                extent = max(
+                    (box.margin.y + box.margin.height - origin_y
+                     for box in boxes.values()),
+                    default=flow.content_height,
+                )
+                nested_scroll[identifier] = (flow, width, height, max(
+                    height, flow.content_height, extent,
+                ))
+                return IntrinsicSizes(0, width, 0, height, width, height)
+            if child.kind is NodeKind.HOST and child.type == "Grid":
+                subgrid = prepare_composed_grid(
+                    child, content_width=width, generation=generation,
+                    current_generation=current_generation,
+                    measure_leaf=measure_leaf, is_ui_thread=is_ui_thread,
+                    breakpoints=breakpoints, engine=engine,
+                    viewport_constraints=viewport_constraints,
+                    flow_reuse=flow_reuse, invalidation_epoch=invalidation_epoch,
+                    pixel_scale=pixel_scale,
+                    kivy_text_basis=kivy_text_basis,
+                )
+                nested[identifier] = subgrid
+                height = subgrid.content_height
+                return IntrinsicSizes(0, width, 0, height, width, height)
+            if child.kind is NodeKind.HOST and child.type == "Flex":
+                if engine is None:
+                    raise GridPackingError(
+                        "GridItem Flex requires the existing Cinnamon SFLE engine."
+                    )
+                flex = prepare_composed_flex(
+                    child, content_width=width, generation=generation,
+                    current_generation=current_generation,
+                    measure_leaf=measure_leaf,
+                    measure_grid=lambda nested_grid, nested_width:
+                        prepare_composed_grid(
+                            nested_grid, content_width=nested_width,
+                            generation=generation, current_generation=current_generation,
+                            measure_leaf=measure_leaf, is_ui_thread=is_ui_thread,
+                            breakpoints=breakpoints, engine=engine,
+                            viewport_constraints=viewport_constraints,
+                            flow_reuse=flow_reuse, invalidation_epoch=invalidation_epoch,
+                            pixel_scale=pixel_scale,
+                            kivy_text_basis=kivy_text_basis,
+                        ),
+                    is_ui_thread=is_ui_thread, engine=engine,
+                    pixel_scale=pixel_scale,
+                    flow_reuse=flow_reuse, invalidation_epoch=invalidation_epoch,
+                )
+                nested_flex[identifier] = flex
+                height = flex.content_height
+                return IntrinsicSizes(0, width, 0, height, width, height)
+            if child.kind is NodeKind.HOST and child.type in FORMATTING_TAGS and child.effective_children:
+                flow = prepare_composed_flow(
+                    child, width=width, generation=generation,
+                    measure_leaf=measure_leaf, engine=engine,
+                    viewport_constraints=viewport_constraints,
+                    flow_reuse=flow_reuse, invalidation_epoch=invalidation_epoch,
+                    pixel_scale=pixel_scale,
+                    kivy_text_basis=kivy_text_basis,
+                    measure_grid=lambda subgrid, grid_width:
+                        prepare_composed_grid(
+                            subgrid, content_width=grid_width,
+                            generation=generation,
+                            current_generation=current_generation,
+                            measure_leaf=measure_leaf,
+                            is_ui_thread=is_ui_thread,
+                            breakpoints=breakpoints,
+                            engine=engine,
+                            viewport_constraints=viewport_constraints,
+                            flow_reuse=flow_reuse, invalidation_epoch=invalidation_epoch,
+                            pixel_scale=pixel_scale,
+                            kivy_text_basis=kivy_text_basis,
+                        ),
+                )
+                nested_flow[identifier] = flow
+                height = flow.content_height
+                return IntrinsicSizes(0, width, 0, height, width, height)
+            if child.kind not in (NodeKind.HOST, NodeKind.NATIVE) or child.effective_children:
+                raise GridPackingError("Composite GridItem requires a supported nested Grid.")
+            measured = measure_leaf(identifier, child, width)
+            if not isinstance(measured, IntrinsicSizes):
+                raise GridPackingError("Grid leaf must return actual IntrinsicSizes.")
+            return measured
+
+    ids = tuple(child_by_id)
+    # Structural receipts are not native measurements. Retain their height
+    # contribution directly instead of manufacturing a measurement request,
+    # constraints and MeasuredBox for every absent card on every resize.
+    retained_heights = {}
+    if structure is not None and deferred_flows:
+        for identifier, flow in deferred_flows.items():
+            nested_flow[identifier] = flow
+            retained_heights[identifier] = flow.content_height
+            if reusable_flows and identifier in reusable_flows:
+                native_deferred_flows.add(identifier)
+    prepared = measure_grid_native(
+        grid, content_width=content_width, source=Source(),
+        mounted_ids=ids, revisions={identifier: generation for identifier in ids},
+        generation=generation, current_generation=current_generation,
+        allow_nested=True, breakpoints=breakpoints, pixel_scale=pixel_scale,
+        engine=engine,
+        structure=structure,
+        structural_heights=retained_heights,
+    )
+    height = max((placement.y + placement.height for placement in prepared.placements),
+                 default=0.0)
+    return ComposedGrid(
+        grid, prepared, nested, nested_flex, nested_flow, nested_scroll,
+        height, frozenset(deferred_flows or ()) - frozenset(native_deferred_flows),
+        float(content_width), frozenset(native_deferred_flows),
+    )
+
+
+def compose_geometry_batch(
+    composition: ComposedGrid,
+    *,
+    handles: dict[int, object],
+    root_height: float,
+    omitted_roots: frozenset[str] = frozenset(),
+    root_items=None,
+) -> tuple[tuple[GridNativePlacement, ...], dict[str, object], dict[str, float]]:
+    """Flatten local Cinnamon rectangles while retaining native parent boxes."""
+    placements: list[GridNativePlacement] = []
+    widgets: dict[str, object] = {}
+    heights: dict[str, float] = {}
+
+    def walk(grid: ComposedGrid, parent_height: float):
+        children = (root_items if grid is composition and root_items is not None
+                    else {path_identity(item.path): item for item in grid.grid.effective_children})
+        deferred_flow_ids = grid.provisional_ids | grid.native_deferred_flows
+        native_placements = (grid.prepared.placements.selected(grid.viewport_roots)
+                             if grid.viewport_roots is not None else grid.prepared.placements)
+        for placement in native_placements:
+            identifier = placement.node_id
+            if grid is composition and identifier in omitted_roots:
+                continue
+            item = children[identifier]
+            child = item.effective_children[0]
+            placements.append(placement)
+            widgets[identifier] = handles[id(item.source)]
+            heights[identifier] = parent_height
+            if identifier in deferred_flow_ids:
+                # The owning GridItem retains exact structural placement (or
+                # an explicitly provisional P2 bound). Its absent native Flow
+                # needs no flattened descendant batch until promotion.
+                continue
+            nested = grid.nested.get(identifier)
+            if nested is not None:
+                grid_id = identifier + "/grid"
+                child_height = placement.used_height
+                placements.append(GridNativePlacement(
+                    grid_id, 0, 0, placement.used_width, child_height,
+                    placement.used_width, child_height, False, False,
+                ))
+                widgets[grid_id] = handles[id(child.source)]
+                heights[grid_id] = placement.height
+                walk(nested, child_height)
+            elif identifier in grid.nested_scroll:
+                flow, scroll_width, scroll_height, scroll_extent = grid.nested_scroll[identifier]
+                scroll_id = identifier + "/scroll"
+                placements.append(GridNativePlacement(
+                    scroll_id, 0, 0, placement.width, scroll_height,
+                    placement.width, scroll_height, False, False,
+                ))
+                widgets[scroll_id] = handles[id(child.source)]
+                heights[scroll_id] = placement.height
+                content_root = child.effective_children[0]
+                flow_id = scroll_id + "/content"
+                # Keep overflow descendants inside a real native parent rect;
+                # otherwise Qt clips them at the CSS content root's fixed
+                # height before the Scroll viewport can reveal them.
+                placements.append(GridNativePlacement(
+                    flow_id, 0, 0, scroll_width, scroll_extent,
+                    scroll_width, scroll_extent, False, False,
+                ))
+                widgets[flow_id] = handles[id(content_root.source)]
+                # A Kivy ScrollView translates its own viewport canvas.
+                # The content root starts at the bottom of that *content*
+                # extent, not relative to the shorter visible viewport.
+                # Using scroll_height here shifts the entire flow upward
+                # when scroll_extent > scroll_height, leaving a black gap.
+                heights[flow_id] = scroll_extent
+                boxes = dict(flow.result.boxes)
+                nodes_by_id = {node.node_id: node for node in flow.prepared.snapshot.nodes}
+                flow_root_id = flow.prepared.snapshot.nodes[0].node_id
+                for source_id, source in flow.prepared.identities[1:]:
+                    current = nodes_by_id[source_id]
+                    rect = boxes[source_id].border
+                    parent = boxes[current.parent_id].border
+                    local_x, local_y = rect.x - parent.x, rect.y - parent.y
+                    segment_id = flow_id + "/" + source_id
+                    placements.append(GridNativePlacement(
+                        segment_id, max(0.0, local_x), max(0.0, local_y),
+                        rect.width, rect.height, rect.width, rect.height,
+                        False, False,
+                    ))
+                    widgets[segment_id] = handles[id(source)]
+                    # The Scroll canvas translates the entire content using
+                    # its *full* scroll_extent. We extend the HTML content
+                    # root to that height so overflowing descendants remain
+                    # visible. Its direct children must be Y-flipped against
+                    # that same extended native height, not the smaller
+                    # Cinnamon border box, or a gap equal to the difference
+                    # appears above the first child after vertical resizing.
+                    # Descendants of other parents retain their own border
+                    # box heights and Cinnamon's measured local coordinates.
+                    heights[segment_id] = (
+                        scroll_extent if current.parent_id == flow_root_id
+                        else parent.height
+                    )
+                    nested_grid = flow.nested_grids.get(source_id)
+                    if nested_grid is not None:
+                        walk(nested_grid, rect.height)
+            elif identifier in grid.nested_flow:
+                flow = grid.nested_flow[identifier]
+                flow_id = identifier + "/flow"
+                placements.append(GridNativePlacement(
+                    flow_id, 0, 0, placement.used_width, flow.content_height,
+                    placement.used_width, flow.content_height, False, False,
+                ))
+                widgets[flow_id] = handles[id(child.source)]
+                heights[flow_id] = placement.height
+                boxes = dict(flow.result.boxes)
+                # A Flow with N children formerly scanned N snapshot nodes
+                # for every child (quadratic). Build the immutable parent
+                # index once; geometry and identity checks remain identical.
+                nodes_by_id = {node.node_id: node for node in flow.prepared.snapshot.nodes}
+                for source_id, source in flow.prepared.identities[1:]:
+                    current = nodes_by_id[source_id]
+                    rect = boxes[source_id].border
+                    parent = boxes[current.parent_id].border
+                    local_x, local_y = rect.x - parent.x, rect.y - parent.y
+                    segment_id = flow_id + "/" + source_id
+                    placements.append(GridNativePlacement(
+                        segment_id, max(0.0, local_x), max(0.0, local_y),
+                        rect.width, rect.height, rect.width, rect.height,
+                        False, False,
+                    ))
+                    widgets[segment_id] = handles[id(source)]
+                    heights[segment_id] = parent.height
+                    nested_grid = flow.nested_grids.get(source_id)
+                    if nested_grid is not None:
+                        walk(nested_grid, rect.height)
+            elif identifier in grid.nested_flex:
+                subflex = grid.nested_flex[identifier]
+                flex_id = identifier + "/flex"
+                placements.append(GridNativePlacement(
+                    flex_id, 0, 0, placement.used_width, placement.used_height,
+                    placement.used_width, placement.used_height, False, False,
+                ))
+                widgets[flex_id] = handles[id(child.source)]
+                heights[flex_id] = placement.height
+                boxes = dict(subflex.result.boxes)
+                identities = dict(subflex.prepared.identities)
+                for node in subflex.prepared.snapshot.nodes[1:]:
+                    rect = boxes[node.node_id].border
+                    parent = boxes[node.parent_id].border
+                    local_x, local_y = rect.x - parent.x, rect.y - parent.y
+                    segment_id = flex_id + "/" + node.node_id
+                    placements.append(GridNativePlacement(
+                        segment_id, local_x, local_y, rect.width, rect.height,
+                        rect.width, rect.height, False, False,
+                    ))
+                    widgets[segment_id] = handles[id(identities[node.node_id])]
+                    heights[segment_id] = parent.height
+                    nested_grid = subflex.nested_grids.get(node.node_id)
+                    if nested_grid is not None:
+                        walk(nested_grid, rect.height)
+            else:
+                leaf_id = identifier + "/leaf"
+                placements.append(GridNativePlacement(
+                    leaf_id, 0, 0, placement.used_width, placement.used_height,
+                    placement.used_width, placement.used_height, False, False,
+                ))
+                widgets[leaf_id] = handles[id(child.source)]
+                heights[leaf_id] = placement.height
+
+    walk(composition, root_height)
+    return tuple(placements), widgets, heights

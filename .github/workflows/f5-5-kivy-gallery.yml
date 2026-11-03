@@ -1,0 +1,28 @@
+name: F5.5 Kivy native gallery
+
+on:
+  pull_request:
+    branches: [develop]
+    paths:
+      - "examples/f5_5_native_gallery/kivy_app.py"
+      - "docs/public/examples/kivy-gallery.mdx"
+      - ".github/workflows/f5-5-kivy-gallery.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  kivy-native-smoke:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - run: sudo apt-get update && sudo apt-get install -y xvfb libgl1 libmtdev1
+      - run: python -m pip install -e ".[kivy]"
+      - run: xvfb-run -a python examples/f5_5_native_gallery/kivy_app.py --smoke

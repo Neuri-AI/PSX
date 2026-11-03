@@ -1,0 +1,520 @@
+"""Mounted native Grid bridge shared by the toolkit renderers.
+
+This is deliberately a narrow G3 bridge: a Grid root with direct GridItem
+wrappers and one native leaf per wrapper.  Cinnamon computes every item
+rectangle; toolkit code only owns parentage, intrinsic reads and rectangle
+application/readback.
+"""
+from __future__ import annotations
+
+from threading import get_ident
+
+from psx.layout.projection.native_structural_snapshot_reuse import NativeStructuralSnapshotReuse, mounted_structural_token
+from psx.core.grid_contract import GRID_BREAKPOINTS
+from psx.core.vnode import NodeKind
+
+from psx.layout.contracts.errors import DiagnosticCode, SFLEError
+from psx.layout.grid.contracts import GridPackingError
+from psx.layout.adapters.grid_native_commit import (
+    GridCommitBackend, GridNativeCommitReceipt, commit_grid_native_geometry,
+)
+from psx.layout.adapters.grid_viewport_workset import (
+    GridViewportWorkset, subtree_is_safe_for_root_culling,
+)
+from psx.layout.grid.grid_native_measurement import measure_grid_native
+from psx.layout.grid.grid_native_plan import GridNativePlacement
+from psx.layout.projection.native_layout_snapshot import path_identity
+
+
+def is_mounted_native_grid_root(root: object) -> bool:
+    node = root
+    while node.node.kind is NodeKind.COMPONENT and len(node.children) == 1:
+        node = node.children[0]
+    return node.node.kind is NodeKind.HOST and node.node.type == "Grid"
+
+
+
+def root_geometry_changed(backend: GridCommitBackend, previous, desired) -> bool:
+    """Compare native root geometry without treating Tk auto sizes as pixels."""
+    if backend is GridCommitBackend.TK:
+        if not previous:
+            return True
+        try:
+            actual = tuple(int(previous[axis]) for axis in ("x", "y", "width", "height"))
+        except (KeyError, TypeError, ValueError):
+            return True
+        return actual != desired
+    return previous != desired
+
+
+def commit_native_grid(renderer: object, root: object, *, backend: GridCommitBackend) -> None:
+    """Commit a reconciled native Grid without a toolkit layout manager."""
+    if get_ident() != renderer._sfle_owner_thread:
+        raise SFLEError(DiagnosticCode.UNSUPPORTED_MEASUREMENT,
+                        "Grid commit requires the renderer UI thread.")
+    if renderer._sfle_in_commit:
+        raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT, "Reentrant Grid geometry commit.")
+    renderer._sfle_in_commit = True
+    try:
+        generation = renderer._sfle_generation + 1
+        renderer._sfle_generation = generation
+        invalidation_epoch = renderer._sfle_measurement_invalidations.epoch
+        from psx.layout.grid.grid_intrinsic_reuse import GridIntrinsicReuse
+        reuse = getattr(renderer, '_psx_grid_intrinsic_reuse', None)
+        if reuse is None:
+            reuse = GridIntrinsicReuse()
+            renderer._psx_grid_intrinsic_reuse = reuse
+        reuse_transaction = reuse.begin(invalidation_epoch)
+        from psx.layout.grid.grid_native_composition import FlowBlueprintReuse
+        flow_reuse = getattr(renderer, "_psx_grid_flow_blueprints", None)
+        if flow_reuse is None:
+            flow_reuse = FlowBlueprintReuse()
+            renderer._psx_grid_flow_blueprints = flow_reuse
+        flow_reuse.solved.begin(generation, invalidation_epoch)
+        components, handles = {}, {}
+        mounted_stamp = []
+
+        def gather(instance):
+            if instance.disposed:
+                raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT, "Disposed Grid instance.")
+            if instance.node.kind is NodeKind.COMPONENT:
+                if len(instance.children) != 1:
+                    raise SFLEError(DiagnosticCode.INVALID_TREE, "Grid component needs one root.")
+                components[id(instance.node)] = instance.children[0].node
+            else:
+                from psx.core.structural_binding import layout_binding
+                binding = layout_binding(instance)
+                if binding is None or id(instance.node) in handles:
+                    raise SFLEError(DiagnosticCode.INVALID_TREE, "Missing or reused Grid handle.")
+                handles[id(instance.node)] = binding
+            mounted_stamp.append(mounted_structural_token(instance))
+            for child in instance.children:
+                gather(child)
+
+        from psx.layout.projection.mounted_layout_index import mounted_layout_index
+        components, handles, mounted_stamp = mounted_layout_index(renderer, root)
+        structural = getattr(renderer, "_sfle_structural_snapshot_reuse", None)
+        if structural is None:
+            structural = NativeStructuralSnapshotReuse()
+            renderer._sfle_structural_snapshot_reuse = structural
+        normalized = structural.normalize(
+            root.node, components, mounted_stamp, invalidation_epoch,
+        )
+        roots = normalized._participating_roots()
+        if len(roots) != 1 or roots[0].type != "Grid":
+            raise GridPackingError("Expected one mounted Grid root.")
+        grid = roots[0]
+        width = renderer._sfle_constraints.width.value
+        height = renderer._sfle_constraints.height.value
+        if (not renderer._sfle_constraints.width.definite or width is None
+                or not renderer._sfle_constraints.height.definite or height is None):
+            raise GridPackingError("Grid root requires definite viewport constraints.")
+        from psx.markup.html_aliases import FORMATTING_TAGS
+        nested_content = any(
+            child.effective_children and child.effective_children[0].type in (
+                "Grid", "Flex", "Scroll", *FORMATTING_TAGS,
+            )
+            for child in grid.effective_children
+        )
+        # The composition port also handles a primitive GridItem through
+        # structural text metrics. Avoid promoting every initially suspended
+        # leaf merely because this Grid does not contain HTML/Flex wrappers.
+        from psx.core.structural_binding import StructuralBinding
+        nested_content = nested_content or any(
+            isinstance(binding, StructuralBinding)
+            and binding.instance.native_suspended
+            for binding in handles.values()
+        )
+        # Look up exact previously committed geometry *before* any native
+        # intrinsic measurements, recursive Cinnamon composition or Grid
+        # width allocation. This path never retains stale native handles:
+        # the current mounted tree always supplies the commit bindings.
+        from types import SimpleNamespace
+        from psx.layout.grid.grid_geometry_reuse import AcceptedGridGeometryReuse
+        from psx.layout.grid.grid_native_composition import (
+            ComposedGrid, compose_geometry_batch,
+        )
+        geometry_cache = getattr(renderer, "_psx_accepted_grid_geometry", None)
+        if geometry_cache is None:
+            geometry_cache = AcceptedGridGeometryReuse()
+            renderer._psx_accepted_grid_geometry = geometry_cache
+        geometry_cache.begin(
+            normalized, invalidation_epoch, backend.value,
+            getattr(renderer, "_psx_css_pixel_scale", 1.0)
+                if backend is GridCommitBackend.KIVY else 1.0,
+            getattr(renderer, "_grid_breakpoints", GRID_BREAKPOINTS),
+        )
+        grid_id = path_identity(grid.path)
+        reused = geometry_cache.lookup(
+            grid_id, grid, float(width), renderer._sfle_constraints,
+            generation,
+        )
+        # Use the same upstream P2 plan for a directly mounted Grid as for
+        # a Grid nested inside a block/Flex root. The immutable last-accepted
+        # geometry is only a provisional hint, never current-width truth.
+        early_deferred = {}
+        reusable_flows = {}
+        if (reused is None and nested_content
+                and getattr(renderer, "_psx_in_native_viewport_resize", False)):
+            from psx.layout.grid.grid_early_viewport import (
+                select_pre_measurement_deferred_flows,
+            )
+            early_plan = geometry_cache.early_plan(grid_id, normalized, grid)
+            if early_plan is not None:
+                early_deferred = select_pre_measurement_deferred_flows(
+                    normalized, grid, geometry_cache.latest(grid_id),
+                    getattr(renderer, "_psx_grid_viewport_workset", None),
+                    viewport_height=height, epoch=invalidation_epoch,
+                    static_plan=early_plan, content_width=float(width),
+                )
+            from psx.layout.grid.grid_early_viewport import (
+                select_wider_unwrapped_flows,
+            )
+            reusable_flows = select_wider_unwrapped_flows(
+                grid, geometry_cache.latest(grid_id), content_width=float(width),
+                static_plan=early_plan,
+            )
+            if len(reusable_flows) == len(grid.effective_children):
+                geometry_cache.exact_unwrapped_groups += len(reusable_flows)
+        composed_heights = None
+        if reused is not None:
+            composed = reused
+            prepared = reused.prepared
+            flattened = geometry_cache.batch_lookup(
+                grid_id, float(width), renderer._sfle_constraints,
+                float(height), handles,
+            )
+            if flattened is not None:
+                batch, commit_widgets, composed_heights = flattened
+            else:
+                batch, commit_widgets, composed_heights = compose_geometry_batch(
+                    reused, handles={identity: handle.widget
+                                     for identity, handle in handles.items()},
+                    root_height=float(height),
+                )
+            source = SimpleNamespace(
+                is_ui_thread=lambda: get_ident() == renderer._sfle_owner_thread,
+            )
+        elif nested_content:
+            # Each nested Grid resolves spans at its own Cinnamon-allocated
+            # content width; native sources measure only terminal widgets.
+            from psx.layout.grid.grid_native_composition import prepare_composed_grid
+            if backend is GridCommitBackend.TK:
+                renderer.root.update_idletasks()
+
+            def measure_leaf(identifier, node, allocated_width):
+                from psx.layout.runtime.structural_text_probe import measure_without_native_handle
+                intrinsic = measure_without_native_handle(
+                    renderer, node, handles, allocated_width, backend.value)
+                if intrinsic is not None:
+                    return intrinsic
+                from psx.core.structural_binding import materialize_for_measurement
+                widget = materialize_for_measurement(renderer, node, handles)
+                if backend is GridCommitBackend.QT:
+                    from psx.renderers.qt.cinnamon_qt_measurement import QtMeasurementSource
+                    native_source = QtMeasurementSource(
+                        {identifier: widget}, qtcore=renderer._qtcore)
+                elif backend is GridCommitBackend.TK:
+                    from psx.renderers.tkinter.cinnamon_tk_measurement import TkMeasurementSource
+                    native_source = TkMeasurementSource({identifier: widget}, idle_synced=True)
+                elif backend is GridCommitBackend.KIVY:
+                    from psx.renderers.kivy.cinnamon_kivy_measurement import KivyMeasurementSource
+                    # KivyMeasurementSource.measure_width() already
+                    # refreshes textures when invoked. Do not rasterize
+                    # every native label before checking GridIntrinsicReuse.
+                    native_source = KivyMeasurementSource({identifier: widget})
+                else:
+                    raise AssertionError("Unexpected native Grid backend.")
+                if allocated_width is None:
+                    if backend is not GridCommitBackend.KIVY:
+                        raise GridPackingError("Unwrapped text measurement requires Kivy.")
+                    return native_source.measure_width(identifier, None)
+                return reuse_transaction.measure(
+                    backend.value, widget, node, allocated_width,
+                    lambda: native_source.measure_width(identifier, allocated_width),
+                )
+
+            # This port has no independent unwrapped glyph receipt. Retain
+            # its complete measurement path rather than treating a clamped
+            # native preferred width as proof of width-invariant height.
+            measure_leaf.unwrapped = False
+            composed = prepare_composed_grid(
+                grid, content_width=float(width), generation=generation,
+                current_generation=renderer._sfle_generation,
+                measure_leaf=measure_leaf,
+                is_ui_thread=lambda: get_ident() == renderer._sfle_owner_thread,
+                breakpoints=getattr(renderer, "_grid_breakpoints", GRID_BREAKPOINTS),
+                engine=renderer._sfle_engine,
+                viewport_constraints=renderer._sfle_constraints,
+                flow_reuse=flow_reuse, invalidation_epoch=invalidation_epoch,
+                pixel_scale=(getattr(renderer, "_psx_css_pixel_scale", 1.0)
+                             if backend is GridCommitBackend.KIVY else 1.0),
+                kivy_text_basis=(backend is GridCommitBackend.KIVY),
+                deferred_flows=early_deferred,
+                reusable_flows=reusable_flows,
+            )
+            if early_deferred:
+                geometry_cache.early_provisional_groups += len(composed.provisional_ids)
+            prepared = composed.prepared
+            batch, commit_widgets, composed_heights = compose_geometry_batch(
+                composed, handles={identity: handle.widget
+                                   for identity, handle in handles.items()},
+                root_height=float(height),
+            )
+            from types import SimpleNamespace
+            source = SimpleNamespace(
+                is_ui_thread=lambda: get_ident() == renderer._sfle_owner_thread)
+        else:
+            from psx.core.structural_binding import materialize_for_measurement
+            for item in grid.effective_children:
+                materialize_for_measurement(
+                    renderer, item.effective_children[0], handles)
+            ids = tuple(path_identity(child.path) for child in grid.effective_children)
+            item_handles = {path_identity(child.path): handles[id(child.source)]
+                            for child in grid.effective_children}
+            leaf_nodes = {path_identity(child.path): child.effective_children[0].source
+                          for child in grid.effective_children}
+            leaf_handles = {identifier: handles[id(node)]
+                            for identifier, node in leaf_nodes.items()}
+            widgets = {identifier: handle.widget for identifier, handle in leaf_handles.items()}
+            if backend is GridCommitBackend.QT:
+                from psx.renderers.qt.cinnamon_qt_measurement import QtMeasurementSource
+                source = QtMeasurementSource(widgets, qtcore=renderer._qtcore)
+            elif backend is GridCommitBackend.TK:
+                from psx.renderers.tkinter.cinnamon_tk_measurement import TkMeasurementSource
+                source = TkMeasurementSource(widgets, idle_synced=True)
+                renderer.root.update_idletasks()
+            elif backend is GridCommitBackend.KIVY:
+                from psx.renderers.kivy.cinnamon_kivy_measurement import KivyMeasurementSource
+                # The accepted intrinsic cache is consulted by
+                # measure_cached_leaf below. A cache hit must incur zero
+                # glyph texture updates, including the direct Grid path.
+                source = KivyMeasurementSource(widgets)
+            else:
+                raise AssertionError("native bridge is only for toolkit backends")
+            # The same accepted intrinsic cache also serves the simple Grid
+            # path. The source's existing toolkit port retains UI ownership.
+            from types import SimpleNamespace
+            native_source = source
+            leaf_origins = {
+                path_identity(child.path): child.effective_children[0]
+                for child in grid.effective_children
+            }
+            def measure_cached_leaf(identifier, allocated_width):
+                return reuse_transaction.measure(
+                    backend.value, widgets[identifier],
+                    leaf_origins[identifier], allocated_width,
+                    lambda: native_source.measure_width(identifier, allocated_width),
+                )
+            source = SimpleNamespace(
+                port=native_source.port,
+                measure_width=measure_cached_leaf,
+                is_ui_thread=native_source.is_ui_thread,
+            )
+            prepared = measure_grid_native(
+                grid, content_width=float(width), source=source, mounted_ids=ids,
+                revisions={identifier: generation for identifier in ids},
+                generation=generation, current_generation=renderer._sfle_generation,
+                engine=renderer._sfle_engine,
+                breakpoints=getattr(renderer, "_grid_breakpoints", GRID_BREAKPOINTS),
+                pixel_scale=(getattr(renderer, "_psx_css_pixel_scale", 1.0)
+                             if backend is GridCommitBackend.KIVY else 1.0),
+            )
+            batch, commit_widgets = list(prepared.placements), {
+                identifier: handle.widget for identifier, handle in item_handles.items()
+            }
+            for placement in prepared.placements:
+                leaf_id = placement.node_id + "/leaf"
+                batch.append(GridNativePlacement(
+                    leaf_id, 0, 0, placement.used_width, placement.used_height,
+                    placement.used_width, placement.used_height, False, False,
+                ))
+                commit_widgets[leaf_id] = leaf_handles[placement.node_id].widget
+        if reused is None and not nested_content:
+            composed = ComposedGrid(
+                grid, prepared, {}, {}, {}, {},
+                max((p.y + p.height for p in prepared.placements),
+                    default=0.0),
+            )
+        if renderer._sfle_measurement_invalidations.epoch != invalidation_epoch:
+            # Native widget creation can synchronously publish an intrinsic
+            # invalidation (notably Tk's requested-size update).  Renderers
+            # recognise this diagnostic as retryable and measure again using
+            # the new epoch instead of publishing a stale Grid transaction.
+            raise SFLEError(
+                DiagnosticCode.INVALID_SNAPSHOT,
+                "Stale semantic invalidation during Grid intrinsic measurement.",
+            )
+        # Only groups proven offscreen at the previous *accepted* native
+        # commit and still outside the clipped root viewport can be deferred.
+        # Overlapping/positioned/native/scroll descendants fail closed.
+        root_ids = tuple(item.node_id for item in prepared.placements)
+        workset = getattr(renderer, "_psx_grid_viewport_workset", None)
+        if workset is None:
+            workset = GridViewportWorkset()
+            renderer._psx_grid_viewport_workset = workset
+        safe_ids = geometry_cache.viewport_safe_items(grid_id, grid)
+        deferred_ids = workset.plan(
+            root_ids=root_ids, batch=batch, widgets=commit_widgets,
+            viewport_height=float(height), epoch=invalidation_epoch,
+            backend=backend, safe_ids=safe_ids,
+            reconcile=getattr(renderer, "_psx_resize_priority", None),
+        )
+        # Grid is the benchmark-critical path: use the same reversible native
+        # attachment lifecycle as ordinary Flow cards.  Cinnamon still owns
+        # every track and item rectangle; this only removes certified P2 item
+        # roots from their toolkit parent after a successful transaction.
+        from psx.layout.adapters.native_flow_viewport import FlowViewportPlan
+        from psx.core.native_materialization import synchronize_native_materialization
+        materialization_plan = FlowViewportPlan(
+            workset, root_ids, tuple(batch), dict(commit_widgets), float(height),
+            invalidation_epoch, backend.value, frozenset(deferred_ids),
+            release_native=True,
+        )
+        materialization_plan = synchronize_native_materialization(
+            renderer, root, commit_widgets, materialization_plan,
+        )
+        deferred_ids = materialization_plan.deferred_ids
+        if early_deferred:
+            groups = GridViewportWorkset._groups(root_ids, batch, commit_widgets)
+            for item_id in early_deferred:
+                if (item_id not in groups or not all(
+                        placement.node_id in deferred_ids
+                        for placement in groups[item_id]
+                )):
+                    raise GridPackingError(
+                        "Provisional offscreen Grid Flow became visible "
+                        "before a fully measured layout."
+                    )
+        active_batch = tuple(
+            item for item in batch if item.node_id not in deferred_ids
+        )
+        active_widgets = {
+            node_id: widget for node_id, widget in commit_widgets.items()
+            if node_id not in deferred_ids
+        }
+        # No native getter, setter or rollback write for deferred widgets.
+        from psx.layout.grid.mixed_grid_native import MountedMixedGrid
+        rollback_scope = MountedMixedGrid(renderer, normalized, handles, backend, generation)
+        rollback_scope._snapshot_widgets = tuple(active_widgets.values())
+        previous_descendants = rollback_scope.snapshot(
+            only_widget_ids={id(widget) for widget in active_widgets.values()}
+        )
+        from psx.layout.runtime.native_scroll_transaction import capture_scroll_hosts, restore_scroll_hosts
+        scroll_before = capture_scroll_hosts(backend.value, handles)
+        # Capture root geometry before ANY native write. Child transaction
+        # rollback alone is insufficient if commit/readback fails after resize.
+        root_widget = handles[id(grid.source)].widget
+        # A root Grid may itself be the application's top-level QWidget.  Its
+        # geometry is owned by the window manager/user, not by the child Grid
+        # transaction.  Calling setGeometry(0, 0, ...) here during a resize
+        # moves the window to the desktop origin and creates a resize feedback
+        # loop. Embedded Grid roots still need their local (0, 0) rectangle.
+        top_level_qt = backend is GridCommitBackend.QT and bool(
+            getattr(root_widget, "isWindow", lambda: False)()
+        )
+        if backend is GridCommitBackend.QT:
+            previous_rect = root_widget.geometry()
+            previous_root = (previous_rect.x(), previous_rect.y(),
+                             previous_rect.width(), previous_rect.height())
+        elif backend is GridCommitBackend.TK:
+            previous_root = dict(root_widget.place_info())
+        else:
+            previous_root = (tuple(root_widget.pos), tuple(root_widget.size))
+        kivy_heights = None
+        if backend is GridCommitBackend.KIVY:
+            kivy_heights = composed_heights if composed_heights is not None else {
+                placement.node_id: float(height) for placement in prepared.placements}
+            if composed_heights is None:
+                kivy_heights.update({placement.node_id + "/leaf": placement.height
+                                     for placement in prepared.placements})
+        try:
+            # This host never delegates sibling geometry to toolkit layout.
+            if backend is GridCommitBackend.QT and not top_level_qt:
+                desired = (0, 0, round(width), round(height))
+                if root_geometry_changed(backend, previous_root, desired):
+                    root_widget.setGeometry(*desired)
+            elif backend is GridCommitBackend.TK:
+                desired = (0, 0, round(width), round(height))
+                if root_geometry_changed(backend, previous_root, desired):
+                    root_widget.place(x=0, y=0, width=desired[2], height=desired[3])
+            elif backend is GridCommitBackend.KIVY:
+                if previous_root[0] != (0, 0):
+                    root_widget.pos = (0, 0)
+                if previous_root[1] != (width, height):
+                    root_widget.size = (width, height)
+            receipt = commit_grid_native_geometry(
+                active_batch, backend=backend, widgets=active_widgets, generation=generation,
+                current_generation=lambda: (renderer._sfle_generation
+                    if renderer._sfle_measurement_invalidations.epoch == invalidation_epoch
+                    else -1),
+                is_ui_thread=source.is_ui_thread,
+                parent_height=float(height) if backend is GridCommitBackend.KIVY else None,
+                parent_heights=({key: kivy_heights[key] for key in active_widgets}
+                                if kivy_heights is not None else None),
+                # Kivy canvas and widget positions are in the same window
+                # space. A nested GridItem cannot use parent-local coordinates
+                # or its descendants shift as the viewport height changes.
+                kivy_window_coordinates=(backend is GridCommitBackend.KIVY),
+            )
+            if nested_content:
+                rollback_scope._bind_nested_scrolls(composed, scroll_before)
+            if deferred_ids:
+                receipt = GridNativeCommitReceipt(
+                    generation, tuple(p.node_id for p in batch),
+                    receipt.max_readback_error,
+                    tuple(p.node_id for p in batch if p.node_id in deferred_ids),
+                )
+            if renderer._sfle_measurement_invalidations.epoch != invalidation_epoch:
+                raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT,
+                                "Grid invalidated after native readback.")
+        except BaseException:
+            restore_scroll_hosts(scroll_before)
+            rollback_scope.restore(previous_descendants)
+            # Restore the root as well as the child batch; an initially
+            # unplaced Tk root must remain unplaced after failed commit.
+            if backend is GridCommitBackend.QT and not top_level_qt:
+                root_widget.setGeometry(*previous_root)
+            elif backend is GridCommitBackend.TK:
+                if previous_root:
+                    root_widget.place_configure(**previous_root)
+                else:
+                    root_widget.place_forget()
+            elif backend is GridCommitBackend.KIVY:
+                root_widget.pos, root_widget.size = previous_root
+            raise
+        if (renderer._sfle_generation != generation
+                or renderer._sfle_measurement_invalidations.epoch != invalidation_epoch):
+            raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT, "Grid invalidated before viewport acceptance.")
+        from psx.core.native_materialization import finalize_native_materialization
+        materialization_plan = finalize_native_materialization(
+            renderer, root, commit_widgets, materialization_plan,
+        )
+        deferred_ids = materialization_plan.deferred_ids
+        materialization_plan.accept()
+        renderer.grid_result = (prepared, receipt)
+        # A root Grid uses the same idle P2 reconciliation as a mixed Grid.
+        # Publish this flag only after a successful native readback, so the
+        # resize scheduler does not miss outstanding deferred geometry.
+        renderer._psx_native_grid_deferred_total = len(deferred_ids)
+        reuse_transaction.accept(invalidation_epoch)
+        flow_reuse.solved.accept(generation, invalidation_epoch)
+        # MountedMixedGrid rollback scope created above calls
+        # geometry_cache.begin(), clearing speculative receipts. Stage only
+        # *after* that scope and all native writes/readbacks have succeeded.
+        # This is also the acceptance fence for the direct-Grid fast path.
+        if not composed.provisional_ids:
+            if reused is None:
+                geometry_cache.stage(
+                    grid_id, grid, float(width), renderer._sfle_constraints,
+                    composed,
+                )
+            if reused is None or flattened is None:
+                geometry_cache.batch_stage(
+                    grid_id, grid, float(width), renderer._sfle_constraints,
+                    float(height), batch, commit_widgets,
+                    composed_heights, handles,
+                )
+        geometry_cache.accept()
+    finally:
+        renderer._sfle_in_commit = False

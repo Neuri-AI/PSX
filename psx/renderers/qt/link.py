@@ -18,7 +18,10 @@ class QtLinkAdapter:
         widget.setFlat(True)
         widget.setCursor(getattr(getattr(core.Qt, "CursorShape", core.Qt), "PointingHandCursor"))
         widget._psx_link_props = props
-        widget.clicked.connect(lambda *_: activate_link(widget._psx_link_props))
+        widget._psx_sfle_link = renderer._sfle_constraints is not None
+        widget._psx_link_has_click_handler = False
+        widget.clicked.connect(lambda *_: activate_link(widget._psx_link_props)
+                               if not widget._psx_link_has_click_handler else None)
         self._apply(widget, props)
         return QtHandle("Link", widget, props=props)
 
@@ -36,7 +39,8 @@ class QtLinkAdapter:
             f"padding: 0px; text-align: left; color: {color}; }}"
         )
         widget.setAccessibleName(props["label"])
-        widget.adjustSize()
+        if not widget._psx_sfle_link:
+            widget.adjustSize()
 
     def update(self, renderer, handle, changed, removed):
         props = updated_link_props(handle.props, changed, removed)
@@ -49,10 +53,12 @@ class QtLinkAdapter:
         signal = handle.widget.clicked
         callback = lambda *_: slot.invoke()
         signal.connect(callback)
-        return signal, callback
+        handle.widget._psx_link_has_click_handler = True
+        return signal, callback, handle.widget
 
     def unbind_event(self, renderer, subscription):
-        signal, callback = subscription
+        signal, callback, widget = subscription
+        widget._psx_link_has_click_handler = False
         try:
             signal.disconnect(callback)
         except (RuntimeError, TypeError):

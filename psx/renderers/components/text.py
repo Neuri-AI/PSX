@@ -42,14 +42,37 @@ def apply_qt_text(widget: object, props: Mapping[str, object], binding: str) -> 
 
 
 def apply_tk_text(widget: object, props: Mapping[str, object]) -> None:
-    from tkinter.font import nametofont
+    from tkinter.font import Font, nametofont
     p = text_props(props)
     family = nametofont("TkDefaultFont", root=widget).actual("family")
-    styles = ("bold" if p["bold"] else "normal") + " " + ("italic" if p["italic"] else "roman")
-    widget.configure(text=str(p["value"]), font=(family, -max(1, round(p["font_size"])), styles),
-                     foreground="" if p["color"] is None else p["color"], justify=p["align"],
-                     anchor={"left": "w", "center": "center", "right": "e"}[p["align"]])
-    widget.state(("!disabled",) if p["enabled"] else ("disabled",))
+    # A Tk font tuple is parsed differently by Tcl/Tk builds: Linux can
+    # silently discard its bold face.  A retained named Font carries the
+    # independently specified weight and slant on every supported backend.
+    font = getattr(widget, "_psx_text_font", None)
+    if font is None:
+        font = Font(root=widget)
+        widget._psx_text_font = font
+    font.configure(
+        family=family,
+        size=-max(1, round(p["font_size"])),
+        weight="bold" if p["bold"] else "normal",
+        slant="italic" if p["italic"] else "roman",
+    )
+    from tkinter import Label
+    if isinstance(widget, Label):
+        if not hasattr(widget, "_psx_text_original_foreground"):
+            widget._psx_text_original_foreground = widget.cget("foreground")
+        widget.configure(text=str(p["value"]), font=font,
+                         foreground=(p["color"] if p["color"] is not None
+                                     else widget._psx_text_original_foreground),
+                         justify=p["align"],
+                         anchor={"left": "w", "center": "center", "right": "e"}[p["align"]],
+                         state="normal" if p["enabled"] else "disabled")
+    else:
+        widget.configure(text=str(p["value"]), font=font,
+                         foreground="" if p["color"] is None else p["color"], justify=p["align"],
+                         anchor={"left": "w", "center": "center", "right": "e"}[p["align"]])
+        widget.state(("!disabled",) if p["enabled"] else ("disabled",))
 
 
 def apply_kivy_text(widget: object, props: Mapping[str, object]) -> None:
@@ -71,4 +94,10 @@ def apply_kivy_text(widget: object, props: Mapping[str, object]) -> None:
 
 def size_kivy_text(widget: object, size: object) -> None:
     """Keep alignment relative to label bounds when its layout resizes."""
+    if getattr(widget, "_psx_sfle_inline_atomic", False):
+        # Cinnamon composes these words into a shared inline line. Kivy must
+        # not independently wrap a word to its allocated rectangle.
+        if tuple(widget.text_size) != (None, None):
+            widget.text_size = (None, None)
+        return
     widget.text_size = size

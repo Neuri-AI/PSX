@@ -1,0 +1,47 @@
+name: F5.5 G6 clean-room beginner reproduction
+
+on:
+  pull_request:
+    branches: [develop]
+    paths:
+      - "docs/public/getting-started/**"
+      - "docs/public/examples/**"
+      - "examples/f5_5_beginner/**"
+      - "examples/f5_5_task_board/**"
+      - ".github/workflows/f5-5-clean-room-reproduction.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  fresh-install-beginner:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        python-version: ["3.11", "3.12"]
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Reproduce installation and examples in a new venv
+        run: |
+          python -m venv .g6-clean-env
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            PYTHON="$PWD/.g6-clean-env/Scripts/python.exe"
+          else
+            PYTHON="$PWD/.g6-clean-env/bin/python"
+          fi
+          "$PYTHON" -m pip install -e .
+          "$PYTHON" -c "from psx import App, Text; print('Velto import OK')"
+          "$PYTHON" examples/f5_5_beginner/hello_world.py
+          "$PYTHON" examples/f5_5_beginner/counter.py
+          "$PYTHON" examples/f5_5_task_board/app.py
+          (cd examples/f5_5_beginner && "$PYTHON" -m unittest -v test_examples)
+          (cd examples/f5_5_task_board && "$PYTHON" -m unittest -v test_app)

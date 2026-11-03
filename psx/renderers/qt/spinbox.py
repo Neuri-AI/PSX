@@ -18,6 +18,7 @@ class QtSpinBoxAdapter:
         core = importlib.import_module(f"{renderer._binding_package}.QtCore")
         widgets = renderer._widgets
         frame = widgets.QWidget()
+        frame._psx_sfle_internal_layout = renderer._sfle_constraints is not None
         layout = widgets.QHBoxLayout(frame)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
@@ -35,7 +36,13 @@ class QtSpinBoxAdapter:
         frame._psx_updating = False
         for item in frame._psx_parts:
             layout.addWidget(item)
-        frame.setFixedWidth(158)
+        if renderer._sfle_constraints is None:
+            frame.setFixedWidth(158)
+        else:
+            # Children compose the numeric control; its outer rectangle
+            # remains exclusively under SFLE geometry ownership.
+            frame.setMinimumSize(0, 0)
+            frame.setMaximumSize(16777215, 16777215)
         # Keep the uniform control readable on all Qt bindings.
         frame.setStyleSheet(
             "QPushButton, QLineEdit { min-height: 28px; } "

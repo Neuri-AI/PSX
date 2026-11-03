@@ -1,0 +1,58 @@
+name: P0 Kivy allocation attribution
+
+on:
+  workflow_dispatch:
+    inputs:
+      cycles:
+        description: "Kivy cycles for allocation-site profiling"
+        required: true
+        type: choice
+        default: "5000"
+        options: ["1000", "5000", "10000"]
+  push:
+    branches: [develop]
+    paths:
+      - "scripts/p0_kivy_allocation_trace.py"
+      - ".github/workflows/p0-kivy-allocation-trace.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  trace-kivy:
+    name: Kivy allocation sites / Python 3.13
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      KIVY_NO_FILELOG: "1"
+      KIVY_NO_ARGS: "1"
+      PYTHONUNBUFFERED: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Native Kivy environment
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb xauth libegl1 libgl1 libgl1-mesa-dri \
+            libmtdev1 libx11-6 libxext6 libxrender1 libxrandr2 libxcursor1 \
+            libxi6 libsm6 libice6 libasound2-dev
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[dev,kivy]"
+          python -m pip install psutil
+      - name: Profile allocation growth after warmup
+        run: |
+          mkdir -p artifacts
+          xvfb-run -a python scripts/p0_kivy_allocation_trace.py \
+            --cycles "${{ github.event.inputs.cycles || '5000' }}" \
+            --baseline-at 500 --top 35 \
+            --json-out artifacts/kivy-allocation-sites.json
+      - name: Save detailed allocation paths
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: p0-kivy-allocation-sites-${{ github.run_id }}
+          path: artifacts/
+          if-no-files-found: warn
+          retention-days: 30

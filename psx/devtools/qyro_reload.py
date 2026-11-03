@@ -9,6 +9,7 @@ import importlib
 import importlib.util
 import inspect
 import os
+import weakref
 from pathlib import Path
 import sys
 import tempfile
@@ -58,12 +59,14 @@ class QyroComponentReloader:
         self.policy = _reload_policy(host)
         self.modules, self.module_paths = _project_modules(self.source, self.root, self.policy)
         self._watcher: PollingFileWatcher | None = None
+        self._watch_epoch = 0
 
     def start(self) -> bool:
         config = HotReloadConfig.from_environment(root=self.source.parent)
         if not config.effective_enabled or not self.policy.enabled:
             self.report("DISABLED: frozen runtime or production configuration")
             return False
+        self._watch_epoch += 1
         self._watcher = PollingFileWatcher(
             self.source.parent,
             self._on_changes,
@@ -75,9 +78,29 @@ class QyroComponentReloader:
         return True
 
     def stop(self) -> None:
+        self._watch_epoch += 1
         if self._watcher is not None:
             self._watcher.stop()
             self._watcher = None
+
+    def apply_external_changes(self, paths: tuple[Path, ...]) -> None:
+        """Accept changes from the CLI-owned watcher without starting another.
+
+        CLI delivers normalized, project-relative paths. The existing
+        scheduling path checks mount identity and dispatches native work to
+        the renderer's UI thread.
+        """
+        root = self.root.resolve()
+        resolved: list[Path] = []
+        for path in paths:
+            candidate = (root / path).resolve()
+            try:
+                candidate.relative_to(root)
+            except ValueError:
+                self.report("FAILED: source path escapes application root")
+                return
+            resolved.append(candidate)
+        self._on_changes(tuple(resolved))
 
     # -- watcher thread: pure Python only ---------------------------------
 
@@ -111,7 +134,20 @@ class QyroComponentReloader:
             # watcher thread only replaces the render attribute and hands the
             # reconcile to the scheduler, which is thread-safe on all backends.
             renderer = mounted.app.renderer
-            renderer.schedule_ui(lambda: self._apply_update(mounted, root_component))
+            expected_epoch = self._watch_epoch
+            owner = weakref.ref(self)
+
+            def apply_if_current() -> None:
+                reloader = owner()
+                if reloader is None or reloader._watch_epoch != expected_epoch:
+                    return
+                live_mount = getattr(reloader.host, "_psx_mount", None)
+                live_component = getattr(reloader.host, "_psx_root_component", None)
+                if live_mount is None or live_component is None:
+                    return
+                reloader._apply_update(live_mount, live_component)
+
+            renderer.schedule_ui(apply_if_current)
         except Exception as exc:
             # Keep the last successful tree alive; the next save retries.
             self.report(f"FAILED: {exc}")
@@ -185,6 +221,7 @@ def _load_updated_class(source: Path, previous: type[object], modules: frozenset
         transformed.source if transformed.transformed_calls else text,
         previous.__name__,
         modules,
+        authored_source=text,
     )
     with tempfile.TemporaryDirectory(prefix="psx-qyro-reload-") as directory:
         generated = Path(directory) / source.name
@@ -211,27 +248,101 @@ def _load_updated_class(source: Path, previous: type[object], modules: frozenset
                 target = getattr(target, part)
             if not isinstance(target, type):
                 raise RuntimeError("Updated Qyro component class was not found.")
-            _stop_candidate_inspectors(module)
+            _stop_candidate_inspectors(module, previous.render.__globals__)
             return target
         finally:
             sys.modules.pop(module_name, None)
 
 
-def _render_class_source(source: str, class_name: str, modules: frozenset[str]) -> str:
+def _render_class_source(source: str, class_name: str, modules: frozenset[str], *, authored_source: str | None = None) -> str:
     """Keep reload candidates free of application bootstrap side effects."""
     tree = ast.parse(source)
     selected: list[ast.stmt] = []
+    # The markup compiler resolves Native.widget using the candidate render
+    # function's lexical module. A locally defined QWidget subclass must
+    # therefore be present in the candidate module as well.
+    import re
+    native_widget_names: set[str] = set()
+    # Scan authored markup before expressive lowering erases its string literal.
+    # This preserves Native widget classes in isolated source-refresh modules.
+    authored_tree = ast.parse(authored_source) if authored_source is not None else tree
+    for statement in ast.walk(authored_tree):
+        if isinstance(statement, ast.Constant) and isinstance(statement.value, str):
+            native_widget_names.update(re.findall(
+                r"<Native\b[^>]*\bwidget\s*=\s*\{\s*([A-Za-z_]\w*)\s*\}",
+                statement.value,
+                re.DOTALL,
+            ))
+    # Include module-level constants referenced by selected declarations.
+    # Resolve dependencies transitively, preserving original source order.
+    top_level = {
+        target.id: statement
+        for statement in tree.body
+        if isinstance(statement, (ast.Assign, ast.AnnAssign))
+        for target in (statement.targets if isinstance(statement, ast.Assign) else [statement.target])
+        if isinstance(target, ast.Name)
+    }
+    required = set()
+    seed_nodes = [
+        statement for statement in tree.body
+        if (isinstance(statement, ast.ClassDef) and statement.name == class_name)
+        or (isinstance(statement, (ast.FunctionDef, ast.AsyncFunctionDef))
+            and any(isinstance(decorator, ast.Name) and decorator.id == "component"
+                    for decorator in statement.decorator_list))
+        or (isinstance(statement, ast.Assign) and isinstance(statement.value, ast.Call)
+            and isinstance(statement.value.func, ast.Name)
+            and statement.value.func.id in {"create_slice", "configure_store"})
+    ]
+    pending = list(seed_nodes)
+    visited = set()
+    while pending:
+        node = pending.pop()
+        if id(node) in visited:
+            continue
+        visited.add(id(node))
+        for child in ast.walk(node):
+            if isinstance(child, ast.Name) and isinstance(child.ctx, ast.Load):
+                dependency = top_level.get(child.id)
+                if dependency is not None and dependency is not node:
+                    required.add(id(dependency))
+                    pending.append(dependency)
     for statement in tree.body:
-        if isinstance(statement, ast.ClassDef) and statement.name == class_name:
+        if isinstance(statement, ast.ClassDef) and (
+            statement.name == class_name or statement.name in native_widget_names
+        ):
+            # Preserve only QWidget class declarations explicitly referenced
+            # by Native markup, not unrelated module-level application code.
+            selected.append(statement)
+        elif isinstance(statement, (ast.FunctionDef, ast.AsyncFunctionDef)) and any(
+            isinstance(decorator, ast.Name) and decorator.id == "component"
+            or isinstance(decorator, ast.Attribute) and decorator.attr == "component"
+            for decorator in statement.decorator_list
+        ):
+            # The candidate render method resolves PSX component tags from its
+            # module globals. Include newly authored component definitions,
+            # without executing unrelated module-level application bootstrap.
             selected.append(statement)
         elif isinstance(statement, ast.ImportFrom):
             selected.append(statement)
         elif isinstance(statement, ast.Import):
             selected.append(statement)
-        elif isinstance(statement, ast.Assign) and any(
-            isinstance(target, ast.Name) and target.id.startswith("_psx_template_")
-            for target in statement.targets
+        elif isinstance(statement, ast.Assign) and (
+            id(statement) in required
+            or any(isinstance(target, ast.Name) and target.id.startswith("_psx_template_")
+                for target in statement.targets)
+            or (isinstance(statement.value, ast.Call) and isinstance(statement.value.func, ast.Name)
+                and statement.value.func.id in {"create_slice", "configure_store"})
         ):
+            # Fresh slice definitions are required to migrate the live Pydux
+            # store. Never evaluate arbitrary top-level assignments here.
+            if (isinstance(statement.value, ast.Call) and isinstance(statement.value.func, ast.Name)
+                    and statement.value.func.id == "configure_store"):
+                statement.value.keywords = [keyword for keyword in statement.value.keywords
+                    if keyword.arg != "inspector_auto_start"] + [
+                        ast.keyword(arg="inspector_auto_start", value=ast.Constant(value=False))
+                    ]
+            selected.append(statement)
+        elif isinstance(statement, ast.AnnAssign) and id(statement) in required:
             selected.append(statement)
     if not any(isinstance(statement, ast.ClassDef) and statement.name == class_name for statement in selected):
         raise RuntimeError(f"Updated class {class_name!r} was not found.")
@@ -240,8 +351,11 @@ def _render_class_source(source: str, class_name: str, modules: frozenset[str]) 
     return ast.unparse(tree) + "\n"
 
 
-def _stop_candidate_inspectors(module: object) -> None:
+def _stop_candidate_inspectors(module: object, original_globals: dict | None = None) -> None:
+    original_objects = {id(value) for value in (original_globals or {}).values()}
     for value in vars(module).values():
+        if id(value) in original_objects:
+            continue
         inspector = getattr(value, "inspector", None)
         stop = getattr(inspector, "stop", None)
         if callable(stop):

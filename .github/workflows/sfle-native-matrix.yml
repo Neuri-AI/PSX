@@ -1,0 +1,121 @@
+name: SFLE native wheels and frozen fallback
+
+on:
+  workflow_call:
+  pull_request:
+    branches: [main]
+    paths:
+      - "psx/layout/**"
+      - "rust/cinnamon-core/**"
+      - "tests/interop/sfle_frozen_probe.py"
+      - "tests/interop/test_sfle_native_wheel.py"
+      - ".github/workflows/sfle-native-matrix.yml"
+  push:
+    branches: [main]
+    paths:
+      - "psx/layout/**"
+      - "rust/cinnamon-core/**"
+      - "tests/interop/sfle_frozen_probe.py"
+      - "tests/interop/test_sfle_native_wheel.py"
+      - ".github/workflows/sfle-native-matrix.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  docs-impact:
+    uses: ./.github/workflows/docs-delta.yml
+
+  wheel-and-frozen:
+    needs: docs-impact
+    if: needs.docs-impact.outputs.run_checks == 'true'
+    name: "SFLE wheel/frozen ${{ matrix.os }} Python 3.12"
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 50
+    strategy:
+      fail-fast: false
+      matrix:
+        os: ["windows-2022", "macos-15-intel", "macos-15"]
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Identify actual CI platform and CPU
+        run: |
+          python -c "import sys,platform,sysconfig; print('SFLE_RUNNER', platform.platform(),platform.machine(),sysconfig.get_platform(),sys.version)"
+          rustc -vV
+      - name: Install Python fallback, build, test and freeze dependencies
+        run: python -m pip install -e '.[kivy]' pytest "maturin>=1.8,<2" "pyinstaller>=6.9"
+      - name: Build real native PyO3 wheel on this runner
+        run: maturin build --release --manifest-path rust/cinnamon-core/Cargo.toml --out wheelhouse
+      - name: Install and inspect native wheel
+        run: |
+          python -m pip install --no-deps --find-links wheelhouse "velto-cinnamon-core==0.1.0"
+          python -c "import _sfle_native as native; assert native.schema_version()==1; print('SFLE_NATIVE_LIBRARY',native.__file__)"
+      - name: Verify ABI, native primary and exact accepted corpus against Python
+        run: python -m pytest -q tests/interop/test_sfle_native_wheel.py
+      - name: Exercise strict schema negotiation and load-time-only fallback
+        run: python -m pytest -q tests/sfle/test_bad_native_schema_regression.py tests/sfle/test_native_selector_regression.py tests/sfle/test_runtime_no_retry_regression.py tests/sfle/test_missing_native_fallback_regression.py tests/sfle/test_backend_name_regression.py tests/sfle/test_schema_type_regression.py
+      - name: Freeze an executable with Rust native extension bundled
+        run: |
+          pyinstaller --noconfirm --clean --onefile --name sfle-native-probe --hidden-import _sfle_native --distpath dist-native --workpath build-native tests/interop/sfle_frozen_probe.py
+          EXT=""
+          if [[ "${{ runner.os }}" == "Windows" ]]; then EXT=".exe"; fi
+          "./dist-native/sfle-native-probe${EXT}" rust
+      - name: Remove installed native wheel; assert load-time Python fallback
+        run: |
+          python -m pip uninstall -y velto-cinnamon-core
+          python -c "import importlib.util; assert importlib.util.find_spec('_sfle_native') is None"
+          python -c "from psx.layout.engine.backend import load_layout_engine; assert load_layout_engine().backend_name=='python'"
+      - name: Source install with Rust compiler explicitly disabled uses Python fallback
+        run: |
+          python - <<'PYTEST'
+          import os
+          import pathlib
+          import subprocess
+          import tempfile
+          import venv
+
+          with tempfile.TemporaryDirectory(prefix="sfle-no-rust-") as base:
+              root = pathlib.Path(base) / "isolated"
+              venv.EnvBuilder(with_pip=True).create(root)
+              executable = root / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
+              environment = os.environ.copy()
+              environment["RUSTC"] = str(root / "no-rustc-exists")
+              environment["CARGO"] = str(root / "no-cargo-exists")
+              subprocess.run([str(executable), "-m", "pip", "install", "--no-deps", "."],
+                             env=environment, check=True)
+              subprocess.run([str(executable), "-c",
+                  "import importlib.util, psx; from psx.layout.engine.backend import load_layout_engine; "
+                  "assert importlib.util.find_spec('_sfle_native') is None; "
+                  "assert load_layout_engine().backend_name == 'python'"],
+                  env=environment, check=True, cwd=base)
+          PYTEST
+      - name: Verify previous frozen native exe does not depend on installed wheel
+        run: |
+          EXT=""
+          if [[ "${{ runner.os }}" == "Windows" ]]; then EXT=".exe"; fi
+          "./dist-native/sfle-native-probe${EXT}" rust
+      - name: Freeze a distinct Python-only executable without the extension
+        run: |
+          pyinstaller --noconfirm --clean --onefile --name sfle-python-probe --distpath dist-python --workpath build-python tests/interop/sfle_frozen_probe.py
+          EXT=""
+          if [[ "${{ runner.os }}" == "Windows" ]]; then EXT=".exe"; fi
+          "./dist-python/sfle-python-probe${EXT}" python
+      - name: Preserve installable native wheel as a verifiable build artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sfle-native-wheel-${{ matrix.os }}
+          path: wheelhouse/*.whl
+          if-no-files-found: error

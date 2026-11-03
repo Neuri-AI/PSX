@@ -13,6 +13,10 @@ from .classifier import ChangeKind, classify_change
 _Stamp = tuple[int, int]
 
 
+def _discard_changes(_paths: tuple[Path, ...]) -> None:
+    """Inert callback after watcher shutdown."""
+
+
 class PollingFileWatcher:
     """Watch project files with debouncing and atomic-replace tolerance."""
 
@@ -45,7 +49,14 @@ class PollingFileWatcher:
         self._stop.set()
         if self._thread is not None:
             self._thread.join(timeout=max(1.0, self.poll_interval_seconds * 4))
+            if self._thread.is_alive():
+                raise RuntimeError("File watcher thread did not stop.")
             self._thread = None
+        self._pending.clear()
+        self._snapshot.clear()
+        self._last_change_at = None
+        # A stopped watcher is terminal; release callbacks capturing old apps.
+        self.on_changes = _discard_changes
 
     def poll_once(self, *, now: float | None = None) -> tuple[Path, ...]:
         """Perform one deterministic scan; useful for tests and custom loops."""

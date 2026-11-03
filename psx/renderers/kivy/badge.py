@@ -10,15 +10,17 @@ from psx.renderers.components.badge import (
     badge_props, badge_style, hex_rgba, updated_badge_props,
 )
 
-# Kivy font units render smaller than Qt point-sized labels on desktop.
-# Scale only this renderer; keep shared size tokens unchanged.
-KIVY_BADGE_SCALE = 2.0
+# Qt's existing Badge painter sets its font in typographic points.
+# Convert those point tokens at CSS's 96 DPI, then project into Kivy's
+# actual drawable space; do not assume every window is a 2x Retina display.
+_CSS_PX_PER_POINT = 96.0 / 72.0
 
 
 class _BadgeLabel(Label):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self._psx_badge_props = None
+        self._psx_badge_pixel_scale = 1.0
         self._psx_natural_size = (1.0, 1.0)
         self.bind(pos=self._redraw, size=self._on_size)
 
@@ -41,7 +43,7 @@ class _BadgeLabel(Label):
         height = min(self.height, natural_height)
         x = self.x + (self.width - width) / 2
         y = self.y + (self.height - height) / 2
-        radius = height / 2 if props["shape"] == "pill" else 5 * KIVY_BADGE_SCALE
+        radius = height / 2 if props["shape"] == "pill" else 5 * self._psx_badge_pixel_scale
         radius = min(radius, width / 2, height / 2)
 
         self.canvas.before.clear()
@@ -51,13 +53,17 @@ class _BadgeLabel(Label):
                 RoundedRectangle(pos=(x, y), size=(width, height), radius=[radius])
             if props["appearance"] == "outline":
                 Color(*hex_rgba(stroke))
+                # Stroke coordinates and width share the same drawable
+                # density. A fixed 1px line becomes too thin on Retina.
+                half = self._psx_badge_pixel_scale / 2
                 Line(
                     rounded_rectangle=(
-                        x + 0.5, y + 0.5,
-                        max(0, width - 1), max(0, height - 1),
-                        max(0, radius - 0.5),
+                        x + half, y + half,
+                        max(0, width - 2 * half),
+                        max(0, height - 2 * half),
+                        max(0, radius - half),
                     ),
-                    width=1,
+                    width=2 * half,
                 )
 
 
@@ -67,6 +73,8 @@ class KivyBadgeAdapter:
 
         props = badge_props(node.props)
         widget = _BadgeLabel(size_hint=(None, None), halign="center", valign="middle")
+        widget._psx_sfle_badge = renderer._sfle_constraints is not None
+        widget._psx_badge_pixel_scale = getattr(renderer, "_psx_css_pixel_scale", 1.0)
         self._apply(widget, props)
         return KivyHandle("Badge", widget, props)
 
@@ -75,16 +83,18 @@ class KivyBadgeAdapter:
         foreground, _bg, _stroke, font_size, px, py = badge_style(props)
         widget._psx_badge_props = props
         widget.text = props["label"]
-        widget.font_size = font_size * KIVY_BADGE_SCALE
+        scale = widget._psx_badge_pixel_scale
+        widget.font_size = font_size * _CSS_PX_PER_POINT * scale
         widget.color = hex_rgba(foreground)
 
         # Measure text without constraints and preserve its natural width/height.
         widget.text_size = (None, None)
         widget.texture_update()
-        width = max(1.0, widget.texture_size[0] + px * 2 * KIVY_BADGE_SCALE + 2)
-        height = max(1.0, widget.texture_size[1] + py * 2 * KIVY_BADGE_SCALE + 2)
+        width = max(1.0, widget.texture_size[0] + px * 2 * scale + 2 * scale)
+        height = max(1.0, widget.texture_size[1] + py * 2 * scale + 2 * scale)
         widget._psx_natural_size = (width, height)
-        widget.size = (width, height)
+        if not widget._psx_sfle_badge:
+            widget.size = (width, height)
         # Keep center-aligned label text in its allocated slot. Unlike sizing
         # the texture to the badge skin, this also works when Row stretches it.
         widget.text_size = widget.size
@@ -93,6 +103,7 @@ class KivyBadgeAdapter:
 
     def update(self, renderer, handle, changed, removed):
         props = updated_badge_props(handle.props, changed, removed)
+        handle.widget._psx_badge_pixel_scale = getattr(renderer, "_psx_css_pixel_scale", 1.0)
         self._apply(handle.widget, props)
         handle.props = props
 

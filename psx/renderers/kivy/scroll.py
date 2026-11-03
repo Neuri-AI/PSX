@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 from kivy.uix.boxlayout import BoxLayout
+from kivy.uix.widget import Widget
 from kivy.uix.scrollview import ScrollView
+from kivy.effects.scroll import ScrollEffect
 
 from psx.core.errors import RendererCapabilityError
 from psx.core.native import NativeOwnership
@@ -13,11 +15,17 @@ from psx.renderers.components.scroll import (
 
 
 class _PSXScrollView(ScrollView):
-    """Native Kivy scroll input and boundary handling.
+    """Let Kivy own the complete wheel, trackpad and touch lifecycle.
 
-    Avoid overriding on_scroll_start: Kivy uses scrollup/scrolldown in its
-    effect-coordinate convention, and pre-filtering based on scroll_y can
-    block wheel/trackpad events even when content can move.
+    ScrollView.on_scroll_start/on_scroll_move already negotiate gestures with
+    nested scroll viewports and keep the kinetic effects synchronized. A
+    second PSX wheel/trackpad implementation that writes scroll_x/scroll_y
+    before native dispatch can fight those effects and recursively dispatch
+    input while Cocoa is delivering a trackpad gesture.
+
+    Cinnamon owns content dimensions and native scroll offsets remain owned
+    by Kivy. No extra motion-event dispatch or ancestor delta chaining belongs
+    in this adapter.
     """
 
 
@@ -26,19 +34,45 @@ class KivyScrollAdapter:
         from psx.renderers.kivy.kivy import KivyHandle
 
         props = scroll_props(node.props)
+        sfle = renderer._sfle_constraints is not None
         view = _PSXScrollView(
-            do_scroll_x=True, do_scroll_y=True, size_hint=(1, 1),
+            do_scroll_x=True, do_scroll_y=True,
+            size_hint=(None, None) if sfle else (1, 1),
             bar_width=6, scroll_type=["bars", "content"],
             scroll_wheel_distance=48,
+            # A Grid Scroll viewport has Cinnamon-owned geometry. Kivy's
+            # default DampedScrollEffect can spring beyond its changing Y
+            # bounds during live resize, visually shifting the content after
+            # the window has stopped. ScrollEffect retains kinetic scrolling
+            # but clamps the Y offset instead of applying spring overscroll.
+            # Leave legacy Scroll and the X effect unchanged.
+            **({"effect_y": ScrollEffect()} if sfle else {}),
+            always_overscroll=False,
         )
-        content = BoxLayout(
-            orientation=props["content_direction"],
-            size_hint=(None, None),
+        content = (
+            Widget(size_hint=(None, None)) if sfle else
+            BoxLayout(
+                orientation=props["content_direction"],
+                size_hint=(None, None),
+            )
         )
+        view._psx_sfle_scroll = sfle
         view.add_widget(content)
         view._psx_content = content
         self._apply(view, props)
         self._connect(view)
+        if sfle:
+            from kivy.clock import Clock
+            from psx.layout.adapters.viewport_scroll_reentry import request_scroll_reentry
+            def on_native_scroll(*_args):
+                request_scroll_reentry(
+                    renderer, view,
+                    lambda callback: Clock.schedule_once(
+                        lambda _dt: callback(), 0
+                    ),
+                )
+            view._psx_viewport_scroll_listener = on_native_scroll
+            view.bind(scroll_x=on_native_scroll, scroll_y=on_native_scroll)
         return KivyHandle("Scroll", view, props)
 
     @staticmethod
@@ -48,15 +82,16 @@ class KivyScrollAdapter:
         view.do_scroll_x = x and props["enabled"]
         view.do_scroll_y = y and props["enabled"]
         content = view._psx_content
-        content.orientation = props["content_direction"]
-        content.padding = scroll_padding(props)
-        content.spacing = props["spacing"]
-        view.size_hint_x = None if props["width"] is not None else 1
-        view.size_hint_y = None if props["height"] is not None else 1
-        if props["width"] is not None:
-            view.width = float(props["width"])
-        if props["height"] is not None:
-            view.height = float(props["height"])
+        if not view._psx_sfle_scroll:
+            content.orientation = props["content_direction"]
+            content.padding = scroll_padding(props)
+            content.spacing = props["spacing"]
+            view.size_hint_x = None if props["width"] is not None else 1
+            view.size_hint_y = None if props["height"] is not None else 1
+            if props["width"] is not None:
+                view.width = float(props["width"])
+            if props["height"] is not None:
+                view.height = float(props["height"])
         view.bar_width = 6 if props["scrollbar"] != "hidden" else 0
         view.bar_color = (0.62, 0.62, 0.62, 0.78) if props["scrollbar"] != "hidden" else (0, 0, 0, 0)
         view.bar_inactive_color = (
@@ -65,20 +100,36 @@ class KivyScrollAdapter:
         )
         view.scroll_type = ["bars", "content"] if props["scrollbar"] != "hidden" else ["content"]
         view.disabled = not props["enabled"]
-        KivyScrollAdapter._resize_content(view)
+        if not view._psx_sfle_scroll:
+            KivyScrollAdapter._resize_content(view)
 
     @staticmethod
     def _resize_content(view):
-        content = view._psx_content
-        x, y = scroll_axes(view._psx_props["direction"])
-        # Cross-axis sizing clamps to the viewport. The scrollable axis must
-        # retain measured minimum dimensions instead of a fill size_hint.
-        content.width = max(content.minimum_width, view.width) if x else view.width
-        content.height = max(content.minimum_height, view.height) if y else view.height
+        # A BoxLayout can dispatch minimum_size while its size is being
+        # applied. Never recursively resize the same scroll content during
+        # that dispatch: doing so can starve the Kivy event loop on resize.
+        if getattr(view, "_psx_resizing_content", False):
+            return
+        view._psx_resizing_content = True
+        try:
+            content = view._psx_content
+            x, y = scroll_axes(view._psx_props["direction"])
+            # Cross-axis sizing clamps to the viewport. The scrollable axis
+            # retains its measured minimum dimensions.
+            width = max(content.minimum_width, view.width) if x else view.width
+            height = max(content.minimum_height, view.height) if y else view.height
+            if content.width != width:
+                content.width = width
+            if content.height != height:
+                content.height = height
+        finally:
+            view._psx_resizing_content = False
 
     @staticmethod
     def _connect(view):
         content = view._psx_content
+        if view._psx_sfle_scroll:
+            return
         view.bind(size=lambda *_: KivyScrollAdapter._resize_content(view))
         content.bind(minimum_size=lambda *_: KivyScrollAdapter._resize_content(view))
 
@@ -88,19 +139,28 @@ class KivyScrollAdapter:
         self._apply(handle.widget, props)
         handle.widget.scroll_x, handle.widget.scroll_y = position
         handle.props = props
-        self._layout_children(handle)
+        if not handle.widget._psx_sfle_scroll:
+            self._layout_children(handle)
 
     def insert(self, renderer, parent, child, index):
         if child in parent.children:
             parent.children.remove(child)
         parent.children.insert(index, child)
+        if parent.widget._psx_sfle_scroll:
+            content = parent.widget._psx_content
+            child.widget.size_hint = (None, None)
+            child.widget.pos_hint = {}
+            if child.widget.parent is not content:
+                content.add_widget(child.widget)
+            return True
         self._layout_children(parent)
         return True
 
     def move(self, renderer, parent, child, index):
         parent.children.remove(child)
         parent.children.insert(index, child)
-        self._layout_children(parent)
+        if not parent.widget._psx_sfle_scroll:
+            self._layout_children(parent)
         return True
 
     def remove(self, renderer, parent, child):
@@ -144,5 +204,17 @@ class KivyScrollAdapter:
 
     def destroy(self, renderer, handle):
         view = handle.widget
+        listener = getattr(view, "_psx_viewport_scroll_listener", None)
+        if listener is not None:
+            view.unbind(scroll_x=listener, scroll_y=listener)
+            view._psx_viewport_scroll_listener = None
+        view._psx_viewport_has_deferred = False
+        # An unmounted viewport must not keep scheduling kinetic-effect or
+        # scrollbar animation updates after its GridItem has been removed.
+        from kivy.animation import Animation
+        Animation.stop_all(view)
+        for effect in (view.effect_x, view.effect_y):
+            if effect is not None:
+                effect.cancel()
         if view.parent is not None:
             view.parent.remove_widget(view)

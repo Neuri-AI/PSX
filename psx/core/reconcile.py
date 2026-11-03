@@ -2,17 +2,43 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from typing import cast
 
 from psx.renderers.protocol import Renderer
 
-from .errors import DuplicateKeyError
+from .errors import DuplicateKeyError, HookOrderError
 from .events import EventSlot
 from .hooks import Ref, abort_render, begin_render, dispose_hooks, end_render
 from .instance import MountedInstance
 from .scheduler import Scheduler
 from .vnode import NodeKind, VNode
+
+
+
+def _flatten_host_fragments(nodes: tuple[VNode, ...]) -> tuple[VNode, ...]:
+    """Expand transparent fragments before sending host children to renderers.
+
+    Empty fragments contribute no native node. A fragment with children
+    contributes those children in source order without a synthetic layout box.
+    """
+    flattened: list[VNode] = []
+    for child in nodes:
+        if child.kind is NodeKind.FRAGMENT:
+            flattened.extend(_flatten_host_fragments(child.children))
+        else:
+            flattened.append(child)
+    return tuple(flattened)
+
+
+def _raise_cleanup_error(errors: list[Exception]) -> None:
+    """Preserve the earliest failure and annotate later cleanup failures."""
+    if not errors:
+        return
+    first = errors[0]
+    if len(errors) > 1 and hasattr(first, "add_note"):
+        first.add_note(f"{len(errors) - 1} additional teardown error(s).")
+    raise first
 
 _EVENT_PREFIX = "on_"
 _RUNTIME_PROPS = frozenset({"ref"})
@@ -23,8 +49,20 @@ class Reconciler:
 
     def __init__(self, renderer: Renderer) -> None:
         self.renderer = renderer
+        self._logical_revision = 0
+        # Native resource ownership is independent of the logical tree. This
+        # index lets toolkit observers visit live resources without walking
+        # thousands of logically alive, unmaterialized descendants.
+        self._native_instances: dict[int, MountedInstance] = {}
+        self._native_revision = 0
+        # Internal ownership bridge used by viewport-native lifecycle. The
+        # public Renderer protocol and application component API are unchanged.
+        if getattr(renderer, "_sfle_constraints", None) is not None:
+            renderer._psx_reconciler = self
         self.root: MountedInstance | None = None
         self._is_rendering = False
+        self._coordinated_remount = False
+        self._coordinated_remount_applied = False
         self._pending_refs: list[tuple[MountedInstance,
                                        Ref[object] | None]] = []
         self.scheduler = Scheduler(renderer.schedule_ui, self._flush_dirty)
@@ -39,6 +77,8 @@ class Reconciler:
         """
         from .errors import HookOrderError
 
+        self._logical_revision += 1
+
         if instance.disposed or instance.node.kind is not NodeKind.COMPONENT:
             return True
         try:
@@ -51,10 +91,94 @@ class Reconciler:
             # place; the caller will unmount and remount it.
             return False
 
+    def remount_component(self, instance: MountedInstance, *, node: VNode | None = None, commit: bool = True) -> MountedInstance:
+        """Replace one incompatible hook boundary without remounting siblings.
+
+        Called on the renderer owner thread after a failed compatible render.
+        The former instance becomes inert so retained state setters cannot
+        schedule work against the replacement. Compatible native descendants
+        are reconciled in place; only changed descendants are recreated.
+        """
+        if instance.disposed or instance.node.kind is not NodeKind.COMPONENT:
+            raise ValueError("Only a live component boundary can be remounted.")
+        self._logical_revision += 1
+        parent = instance.parent
+        replacement = MountedInstance(node=node if node is not None else instance.node, parent=parent)
+        # First validate the new hook sequence and VNode without altering the
+        # live descendant tree. An invalid candidate cannot destroy the UI.
+        rendered = self._evaluate_component(replacement)
+        previous = instance.children[0]
+        try:
+            previous_handle = instance.native_handle()
+        except RuntimeError:
+            previous_handle = None
+
+        # Retained setters and callbacks from the old boundary must go inert
+        # before the replacement becomes visible. Dispose every old effect,
+        # even if one user cleanup throws.
+        cleanup_error = None
+        instance.disposed = True
+        try:
+            dispose_hooks(instance)
+        except Exception as exc:
+            cleanup_error = exc
+        instance.contexts.clear()
+        instance.children = []
+        try:
+            replacement.children = [self._reconcile(previous, rendered, replacement)]
+            replacement.children[0].parent = replacement
+            if parent is None:
+                self.root = replacement
+            else:
+                parent.children = [
+                    replacement if child is instance else child
+                    for child in parent.children
+                ]
+            self._coordinated_remount_applied = True
+            try:
+                replacement_handle = replacement.native_handle()
+            except RuntimeError:
+                replacement_handle = None
+            if replacement_handle is not previous_handle:
+                ancestor = self._effective_ancestor(replacement)
+                if ancestor is not None:
+                    self._refresh_ancestor_layout(ancestor)
+            if commit:
+                commit_layout = getattr(self.renderer, "commit_layout", None)
+                if callable(commit_layout) and self.root is not None:
+                    commit_layout(self.root)
+                self._commit_refs()
+                self.scheduler.run_effects()
+        except Exception:
+            # Failed native replacement may be partially committed; do not
+            # claim transactional rollback of arbitrary renderer mutations.
+            raise
+        if cleanup_error is not None:
+            raise cleanup_error
+        return replacement
+
     def render(self, node: VNode) -> MountedInstance:
         """Mount or update the single root description."""
+        self._logical_revision += 1
+        if (node.kind is NodeKind.FRAGMENT
+                and getattr(self.renderer, "_sfle_constraints", None) is not None):
+            from psx.markup.html_aliases import _html_div
+            node = _html_div(*node.children)
         if self._is_rendering:
             raise RuntimeError("PSX rendering is not re-entrant.")
+        # A completely stable host tree with only paint-class CSS changes
+        # needs native style projection, but no new Cinnamon geometry commit.
+        # Component boundaries, props, structural edits and unsupported CSS
+        # effects conservatively retain the regular layout commit.
+        pending_measurement = getattr(self.renderer, "_sfle_measurement_invalidations", None)
+        pending_geometry = (
+            pending_measurement is not None and pending_measurement.needs_commit()
+        )
+        paint_only = (
+            self.root is not None
+            and not pending_geometry
+            and _paint_only_css_update(self.root, node)
+        )
         self._is_rendering = True
         try:
             if self.root is None:
@@ -64,33 +188,94 @@ class Reconciler:
             root = self.root
         finally:
             self._is_rendering = False
+        commit_layout = getattr(self.renderer, "commit_layout", None)
+        materialization = getattr(self.renderer, "_psx_native_materialization", None)
+        invalidate_materialization = getattr(materialization, "invalidate", None)
+        if callable(invalidate_materialization):
+            invalidate_materialization()
+        if callable(commit_layout) and not paint_only:
+            commit_layout(root)
         self._commit_refs()
         self.scheduler.run_effects()
         assert root is not None
         return root
 
     def unmount(self) -> None:
-        if self.root is not None:
-            self._unmount(self.root, detach=False)
-            self.root = None
+        """Release the root and invalidate layout even if cleanup fails."""
+        errors: list[Exception] = []
+        root = self.root
+        if root is not None:
+            try:
+                self._unmount(root, detach=False)
+            except Exception as error:
+                errors.append(error)
+            finally:
+                self.root = None
+        invalidate_layout = getattr(self.renderer, "invalidate_layout", None)
+        if callable(invalidate_layout):
+            try:
+                invalidate_layout()
+            except Exception as error:
+                errors.append(error)
+        # A failed layout commit can leave ref assignments queued. Do not
+        # retain disposed instances or application-owned refs across teardown.
+        self._pending_refs.clear()
+        if getattr(self.renderer, "_sfle_constraints", None) is not None:
+            self.renderer._psx_mounted_layout_index = None
+        materialization = getattr(self.renderer, "_psx_native_materialization", None)
+        if materialization is not None:
+            materialization.invalidate()
+        if hasattr(self.renderer, "_psx_pending_native_dematerialization"):
+            self.renderer._psx_pending_native_dematerialization = None
+        probe = getattr(self.renderer, "_psx_structural_text_probe", None)
+        if probe is not None:
+            try:
+                probe.close()
+            except Exception as error:
+                errors.append(error)
+            self.renderer._psx_structural_text_probe = None
+        self.scheduler.discard_pending()
+        _raise_cleanup_error(errors)
+
+    def _apply_css(self, handle: object, computed: object) -> None:
+        apply = getattr(self.renderer, "apply_css", None)
+        if callable(apply):
+            apply(handle, computed)
 
     def _mount(self, node: VNode, parent: MountedInstance | None) -> MountedInstance:
         instance = MountedInstance(node=node, parent=parent)
+        from .structural_binding import can_defer_initial_grid_item, initialize_structural_binding
+        if ((parent is not None and parent.native_suspended)
+                or can_defer_initial_grid_item(node, self.renderer, parent)):
+            instance.native_suspended = True
+            instance.native_materialized = False
         try:
             if node.kind is NodeKind.COMPONENT:
                 rendered = self._evaluate_component(instance)
                 instance.children = [self._mount(rendered, instance)]
+                instance.native_suspended = instance.children[0].native_suspended
+                instance.native_materialized = not instance.native_suspended
+                return instance
+
+            if instance.native_suspended:
+                initialize_structural_binding(instance)
+                children = _flatten_host_fragments(node.children)
+                _validate_keys(children)
+                instance.children = [self._mount(child, instance) for child in children]
                 return instance
 
             instance.handle = self.renderer.create(
-                _without_runtime_props(node), parent.native_handle(
-                ) if parent and parent.handle else None
+                _without_runtime_props(node), self._effective_parent_handle(instance)
             )
+            self._native_instances[id(instance)] = instance
+            self._native_revision += 1
+            self._apply_css(instance.handle, node.css_computed)
             self._queue_ref(instance, node.props.get("ref"))
             self._sync_events(instance, {}, node.props)
-            _validate_keys(node.children)
+            children = _flatten_host_fragments(node.children)
+            _validate_keys(children)
             instance.children = [self._mount(
-                child, instance) for child in node.children]
+                child, instance) for child in children]
             self._place_children(instance, [], instance.children)
             return instance
         except Exception:
@@ -101,30 +286,223 @@ class Reconciler:
         self, old: MountedInstance, node: VNode, parent: MountedInstance | None
     ) -> MountedInstance:
         if not _compatible(old.node, node):
+            if (self._coordinated_remount
+                    and old.node.kind is NodeKind.HOST
+                    and node.kind is NodeKind.HOST):
+                ancestor = parent
+                while ancestor is not None and ancestor.node.kind in (
+                        NodeKind.COMPONENT, NodeKind.FRAGMENT):
+                    ancestor = ancestor.parent
+                if ancestor is None:
+                    # Prepare the replacement before touching the mounted
+                    # root. Keep the parent component and its hook cells alive.
+                    restore = getattr(self.renderer, "restore_root", None)
+                    try:
+                        candidate = self._mount(node, parent)
+                    except BaseException:
+                        if callable(restore):
+                            restore(old.native_handle())
+                        raise
+                    try:
+                        transition = getattr(self.renderer, "transition_root", None)
+                        if callable(transition):
+                            transition(old.native_handle(), candidate.native_handle())
+                    except BaseException:
+                        self._unmount(candidate, detach=candidate.attached)
+                        if callable(restore):
+                            restore(old.native_handle())
+                        raise
+                    self._unmount(old, detach=old.attached)
+                    return candidate
             self._unmount(old, detach=old.attached)
             return self._mount(node, parent)
 
         previous_node = old.node
-        old.node = node
         if node.kind is NodeKind.COMPONENT:
-            rendered = self._evaluate_component(old)
-            previous = old.children[0]
-            old.children = [self._reconcile(previous, rendered, old)]
-            return old
+            old.node = node
+            try:
+                rendered = self._evaluate_component(old)
+                previous = old.children[0]
+                old.children = [self._reconcile(previous, rendered, old)]
+                old.native_suspended = old.children[0].native_suspended
+                old.native_materialized = old.children[0].native_materialized
+                return old
+            except HookOrderError:
+                old.node = previous_node
+                if self._coordinated_remount:
+                    return self.remount_component(old, node=node, commit=False)
+                raise
+            except Exception:
+                old.node = previous_node
+                raise
 
+        # Reject invalid callbacks before native mutation or slot replacement.
+        for name, callback in node.props.items():
+            if _is_event(name) and callback is not None and not callable(callback):
+                raise TypeError(f"{name} must be callable or None.")
+        if old.native_suspended:
+            # Reconcile current descriptions and component state while P2
+            # owns no toolkit objects. Reactivation projects the latest VNode
+            # once; intermediate props/CSS/events never reach the renderer.
+            previous_children = old.children
+            old.children = self._reconcile_children(
+                old, previous_children, _flatten_host_fragments(node.children))
+            old.node = node
+            if previous_node.props.get("ref") is not node.props.get("ref"):
+                self._queue_ref(old, node.props.get("ref"))
+            return old
         assert old.handle is not None
         changed, removed = _prop_delta(previous_node.props, node.props)
+        try:
+            if changed or removed:
+                self.renderer.update(old.handle, changed, removed)
+            if previous_node.css_computed != node.css_computed or (
+                (changed or removed) and node.css_computed is not None
+            ):
+                # Native component updates may reset font or foreground props;
+                # reapply CSS only when a native mutation could have overwritten it.
+                self._apply_css(old.handle, node.css_computed)
+            self._sync_events(old, previous_node.props, node.props)
+            previous_children = old.children
+            next_children = self._reconcile_children(
+                old, previous_children, _flatten_host_fragments(node.children))
+            old.children = next_children
+            self._place_children(old, previous_children, next_children)
+        except Exception:
+            # Preserve the reconciler's last valid declarative state on a
+            # rejected update. Existing native mutations beyond this point
+            # still require an explicit compensating rollback certificate.
+            old.node = previous_node
+            raise
+        old.node = node
         if previous_node.props.get("ref") is not node.props.get("ref"):
             self._queue_ref(old, node.props.get("ref"))
-        self._sync_events(old, previous_node.props, node.props)
-        if changed or removed:
-            self.renderer.update(old.handle, changed, removed)
-        previous_children = old.children
-        next_children = self._reconcile_children(
-            old, previous_children, node.children)
-        old.children = next_children
-        self._place_children(old, previous_children, next_children)
         return old
+
+    def _suspend_native(self, instance: MountedInstance) -> None:
+        """Release certified native resources without ending logical lifetime.
+
+        The layout owner must retain structural receipts and call this only
+        after accepting a P2 classification. Native refs, effects, borrowed
+        widgets and active focus require the existing attached fallback.
+        """
+        from .native_materialization import _static_pin_reason, _has_focus
+        if instance.native_suspended:
+            return
+        reason = _static_pin_reason(instance)
+        if reason is not None or _has_focus(instance):
+            raise RuntimeError(f"Cannot suspend pinned native subtree: {reason or 'focused'}")
+        handle = instance.native_handle()
+        parent_handle = self._effective_parent_handle(instance)
+        retiring = set()
+        def retiring_ids(current):
+            if current.handle is not None:
+                retiring.add(id(getattr(current.handle, "widget", current.handle)))
+            for child in current.children:
+                retiring_ids(child)
+        retiring_ids(instance)
+        self.renderer._psx_native_retiring_widget_ids = retiring
+
+        def release(current):
+            for child in reversed(current.children):
+                release(child)
+            for slot, subscription in tuple(current.event_slots.values()):
+                slot.dispose()
+                self.renderer.unbind_event(subscription)
+            current.event_slots.clear()
+            if current.handle is not None:
+                from .structural_binding import retain_binding
+                retain_binding(current)
+                self.renderer.destroy(current.handle)
+                self._native_instances.pop(id(current), None)
+                self._native_revision += 1
+                current.handle = None
+            current.native_suspended = True
+            current.native_materialized = False
+            current.attached = False
+            current._placed_handle = None
+
+        try:
+            if instance.attached and parent_handle is not None:
+                self.renderer.remove(parent_handle, handle)
+            release(instance)
+            current = instance.parent
+            while current is not None and current.node.kind is NodeKind.COMPONENT:
+                current.native_suspended = True
+                current.native_materialized = False
+                current.attached = False
+                current._placed_handle = None
+                current = current.parent
+        finally:
+            self.renderer._psx_native_retiring_widget_ids = set()
+
+    def _resume_native(self, instance: MountedInstance) -> None:
+        """Build native resources from current logical state without rendering hooks."""
+        if not instance.native_suspended:
+            return
+        activating = getattr(self.renderer, "_psx_native_activation_widget_ids", None)
+        if activating is None:
+            activating = set()
+            self.renderer._psx_native_activation_widget_ids = activating
+        created_ids = set()
+
+        def create(current):
+            if current.node.kind is NodeKind.COMPONENT:
+                for child in current.children:
+                    create(child)
+            else:
+                current.handle = self.renderer.create(
+                    _without_runtime_props(current.node),
+                    self._effective_parent_handle(current))
+                self._native_instances[id(current)] = current
+                self._native_revision += 1
+                widget_id = id(getattr(current.handle, "widget", current.handle))
+                activating.add(widget_id)
+                created_ids.add(widget_id)
+                self._apply_css(current.handle, current.node.css_computed)
+                self._sync_events(current, {}, current.node.props)
+                if current.node.props.get("ref") is not None:
+                    self._queue_ref(current, current.node.props.get("ref"))
+                for child in current.children:
+                    create(child)
+                current.native_suspended = False
+                self._place_children(current, [], current.children)
+            current.native_suspended = False
+            current.native_materialized = True
+
+        try:
+            create(instance)
+            current = instance.parent
+            while current is not None and current.node.kind is NodeKind.COMPONENT:
+                current.native_suspended = False
+                current.native_materialized = True
+                current = current.parent
+            parent = self._effective_ancestor(instance)
+            if parent is not None:
+                self._refresh_ancestor_layout(parent)
+        except BaseException:
+            # Do not dispose component hooks when native activation fails.
+            # Release only newly created toolkit resources and allow retry.
+            def discard(current):
+                for child in reversed(current.children):
+                    discard(child)
+                for slot, subscription in tuple(current.event_slots.values()):
+                    slot.dispose()
+                    self.renderer.unbind_event(subscription)
+                current.event_slots.clear()
+                if current.handle is not None:
+                    self.renderer.destroy(current.handle)
+                    self._native_instances.pop(id(current), None)
+                    self._native_revision += 1
+                    current.handle = None
+                current.native_suspended = True
+                current.native_materialized = False
+                current.attached = False
+                current._placed_handle = None
+            discard(instance)
+            raise
+        finally:
+            activating.difference_update(created_ids)
 
     def _reconcile_children(
         self, parent: MountedInstance, old_children: list[MountedInstance], new_nodes: tuple[VNode, ...]
@@ -173,7 +551,12 @@ class Reconciler:
         # with exactly the same sequence of renderer operations.
         pending = {id(child) for child in current}
         cursor = 0
-        for index, child in enumerate(desired):
+        native_index = 0
+        for child in desired:
+            if child.native_suspended:
+                continue
+            index = native_index
+            native_index += 1
             handle = child.native_handle()
             while cursor < len(current) and id(current[cursor]) not in pending:
                 cursor += 1
@@ -227,7 +610,7 @@ class Reconciler:
         if ancestor.handle is None:
             return
         for index, child in enumerate(ancestor.children):
-            if child.disposed:
+            if child.disposed or child.native_suspended:
                 continue
             try:
                 handle = child.native_handle()
@@ -275,27 +658,51 @@ class Reconciler:
                 previous[0].update(cast(object, callback))
 
     def _unmount(self, instance: MountedInstance, *, detach: bool) -> None:
+        """Attempt independent teardown steps before propagating an error.
+
+        Native detach, event unbind, effects, descendants and own handle
+        destruction must not be skipped solely because user cleanup fails.
+        """
         if instance.disposed:
             return
         instance.disposed = True
-        native_handle = instance.native_handle(
-        ) if detach and instance.handle is None else instance.handle
+        errors: list[Exception] = []
+
+        def attempt(
+            operation: Callable[..., object], *args: object, **kwargs: object
+        ) -> object | None:
+            try:
+                return operation(*args, **kwargs)
+            except Exception as error:
+                errors.append(error)
+                return None
+
+        native_handle = instance.handle
+        if detach and native_handle is None:
+            native_handle = attempt(instance.native_handle)
         if detach and native_handle is not None:
             parent_handle = self._effective_parent_handle(instance)
             if parent_handle is not None:
-                self.renderer.remove(parent_handle, native_handle)
-        # Slots become inert before any native removal can result in stale callbacks.
+                attempt(self.renderer.remove, parent_handle, native_handle)
+        # Make callbacks inert before the native widgets can be destroyed.
         for slot, subscription in tuple(instance.event_slots.values()):
-            slot.dispose()
-            self.renderer.unbind_event(subscription)
+            attempt(slot.dispose)
+            attempt(self.renderer.unbind_event, subscription)
         instance.event_slots.clear()
+
         if isinstance(instance.ref, Ref):
             instance.ref.current = None
-        dispose_hooks(instance)
+        attempt(dispose_hooks, instance)
         for child in reversed(instance.children):
-            self._unmount(child, detach=False)
+            attempt(self._unmount, child, detach=False)
+        instance.children.clear()
+        instance.contexts.clear()
         if instance.handle is not None:
-            self.renderer.destroy(instance.handle)
+            attempt(self.renderer.destroy, instance.handle)
+        self._native_instances.pop(id(instance), None)
+        if instance.handle is not None:
+            self._native_revision += 1
+        _raise_cleanup_error(errors)
 
     def _effective_parent_handle(self, instance: MountedInstance) -> object | None:
         parent = instance.parent
@@ -315,16 +722,27 @@ class Reconciler:
             abort_render(token)
             raise
         end_render(token)
+        if (isinstance(result, VNode) and result.kind is NodeKind.FRAGMENT
+                and instance.parent is None
+                and getattr(self.renderer, "_sfle_constraints", None) is not None):
+            # A root Fragment is a transparent authoring boundary. Give its
+            # native siblings a private flow viewport, not a public div VNode.
+            from psx.markup.html_aliases import _html_div
+            result = _html_div(*result.children)
         if not isinstance(result, VNode):
             # type: ignore[union-attr]
             raise TypeError(f"Component {component.name} must return a VNode.")
-        return result
+        from psx.css.inheritance import inherit_component_styles
+        return inherit_component_styles(instance, result)
 
     def _flush_dirty(self, dirty: tuple[MountedInstance, ...]) -> None:
         """Called by the renderer's UI loop after coalescing state updates."""
+        self._logical_revision += 1
         if self._is_rendering:
             raise RuntimeError(
                 "Scheduler attempted to flush during rendering.")
+        invalidations = getattr(self.renderer, "_sfle_measurement_invalidations", None)
+        paint_only = invalidations is None or not invalidations.needs_commit()
         self._is_rendering = True
         try:
             for instance in dirty:
@@ -340,6 +758,12 @@ class Reconciler:
                     old_handle = None
                 rendered = self._evaluate_component(instance)
                 previous = instance.children[0]
+                # A queued hook update can change only CSS paint. Inspect
+                # its previous mounted subtree before mutating it; never
+                # bypass a structural, measurement or geometry change.
+                paint_only = (
+                    paint_only and _paint_only_css_update(previous, rendered)
+                )
                 instance.children = [self._reconcile(
                     previous, rendered, instance)]
                 try:
@@ -347,11 +771,21 @@ class Reconciler:
                 except RuntimeError:
                     new_handle = None
                 if new_handle is not old_handle:
+                    paint_only = False
                     ancestor = self._effective_ancestor(instance)
                     if ancestor is not None:
                         self._refresh_ancestor_layout(ancestor)
         finally:
             self._is_rendering = False
+        commit_layout = getattr(self.renderer, "commit_layout", None)
+        materialization = getattr(self.renderer, "_psx_native_materialization", None)
+        invalidate_materialization = getattr(materialization, "invalidate", None)
+        if callable(invalidate_materialization):
+            invalidate_materialization()
+        if (invalidations is not None and invalidations.needs_commit()):
+            paint_only = False
+        if callable(commit_layout) and self.root is not None and not paint_only:
+            commit_layout(self.root)
         self._commit_refs()
         self.scheduler.run_effects()
 
@@ -374,12 +808,50 @@ class Reconciler:
                     handle, "widget", handle) if instance.node.kind is NodeKind.NATIVE else handle
 
 
+def _paint_only_css_update(old: MountedInstance, new: VNode) -> bool:
+    """Prove that a host subtree changed only in non-geometric CSS paint.
+
+    Never infer layout invariance through component or native boundaries,
+    changed props, or reordered children. A missing style snapshot is also
+    treated conservatively because it may contain inherited geometry.
+    """
+    from psx.css.cascade import ComputedStyle
+    from psx.css.effects import StyleEffect, classify_style_change
+
+    previous = old.node
+    if (previous.kind is not NodeKind.HOST or new.kind is not NodeKind.HOST
+            or not _compatible(previous, new)
+            or previous.props != new.props
+            or len(old.children) != len(new.children)):
+        return False
+    if previous.css_computed is None and new.css_computed is None:
+        # An unchanged sibling with no CSS source cannot invalidate layout.
+        effect = StyleEffect.NONE
+    elif isinstance(previous.css_computed, ComputedStyle) and isinstance(
+            new.css_computed, ComputedStyle):
+        effect = classify_style_change(previous.css_computed, new.css_computed)
+    else:
+        # An attached or detached computed source requires normal commit.
+        return False
+    if effect & ~StyleEffect.PAINT:
+        return False
+    return all(
+        _paint_only_css_update(child, declaration)
+        for child, declaration in zip(old.children, new.children)
+    )
+
+
 def _compatible(old: VNode, new: VNode) -> bool:
     return old.kind is new.kind and old.type == new.type and old.key == new.key
 
 
 def _is_event(name: str) -> bool:
     return name.startswith(_EVENT_PREFIX)
+
+
+def _native_prop_equal(a: object, b: object) -> bool:
+    from .native import _native_equal
+    return _native_equal(a, b)
 
 
 def _prop_delta(
@@ -390,7 +862,7 @@ def _prop_delta(
         for name, value in new.items()
         if not _is_event(name)
         and name not in _RUNTIME_PROPS
-        and (name not in old or old[name] is not value and old[name] != value)
+        and (name not in old or not _native_prop_equal(old[name], value))
     }
     removed = frozenset(
         name for name in old if name not in new and not _is_event(name) and name not in _RUNTIME_PROPS

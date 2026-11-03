@@ -20,6 +20,9 @@ class QtBoxAdapter:
     def create(self, renderer, node, parent):
         from psx.renderers.qt.pyqt import QtHandle
         widget = self._widget_class()
+        if renderer._sfle_constraints is not None:
+            widget._psx_sfle_box = True
+            return QtHandle("Box", widget, props=dict(node.props))
         layout = self._layout_class(widget)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
@@ -33,6 +36,9 @@ class QtBoxAdapter:
             )
 
     def insert(self, renderer, parent, child, index):
+        if getattr(parent.widget, "_psx_sfle_box", False):
+            from psx.renderers.qt.flex import QtSFLEFlexAdapter
+            return QtSFLEFlexAdapter().insert(renderer, parent, child, index)
         parent.layout.insertWidget(index, child.widget)
         # Fill the whole box; the layout's default centers a single child
         # with a small sizeHint instead of stretching it.
@@ -41,6 +47,9 @@ class QtBoxAdapter:
         return True
 
     def move(self, renderer, parent, child, index):
+        if getattr(parent.widget, "_psx_sfle_box", False):
+            from psx.renderers.qt.flex import QtSFLEFlexAdapter
+            return QtSFLEFlexAdapter().move(renderer, parent, child, index)
         parent.layout.removeWidget(child.widget)
         parent.layout.insertWidget(index, child.widget)
         parent.layout.setStretch(index, 1)
@@ -48,6 +57,9 @@ class QtBoxAdapter:
         return True
 
     def remove(self, renderer, parent, child):
+        if getattr(parent.widget, "_psx_sfle_box", False):
+            from psx.renderers.qt.flex import QtSFLEFlexAdapter
+            return QtSFLEFlexAdapter().remove(renderer, parent, child)
         from psx.renderers.qt.pyqt import _release
         parent.layout.removeWidget(child.widget)
         _release(child)

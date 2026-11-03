@@ -19,6 +19,8 @@ def updated_checkbox_props(current: Mapping[str, object], changed: Mapping[str, 
 def apply_qt_checkbox(widget: object, props: Mapping[str, object]) -> None:
     values = checkbox_props(props)
     widget.setEnabled(bool(values["enabled"]))
+    if hasattr(widget, "setText"):
+        widget.setText(str(values.get("label", "")))
     checked = bool(values["checked"])
     if widget.isChecked() != checked:
         blocked = widget.signalsBlocked()
@@ -29,6 +31,8 @@ def apply_qt_checkbox(widget: object, props: Mapping[str, object]) -> None:
 def apply_kivy_checkbox(widget: object, props: Mapping[str, object]) -> None:
     values = checkbox_props(props)
     widget.disabled = not bool(values["enabled"])
+    if hasattr(widget, "_psx_label"):
+        widget._psx_label.text = str(values.get("label", ""))
     if widget.active != bool(values["checked"]):
         widget._psx_updating = True
         try: widget.active = bool(values["checked"])
@@ -37,4 +41,5 @@ def apply_kivy_checkbox(widget: object, props: Mapping[str, object]) -> None:
 def apply_tk_checkbox(widget: object, props: Mapping[str, object], variable: object) -> None:
     values = checkbox_props(props)
     widget.state(("!disabled",) if values["enabled"] else ("disabled",))
+    widget.configure(text=str(values.get("label", "")))
     variable.set(bool(values["checked"]))

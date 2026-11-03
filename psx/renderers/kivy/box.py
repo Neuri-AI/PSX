@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from kivy.uix.boxlayout import BoxLayout
+from kivy.uix.widget import Widget
 
 from psx.core.errors import RendererCapabilityError
 
@@ -10,7 +11,11 @@ from psx.core.errors import RendererCapabilityError
 class KivyBoxAdapter:
     def create(self, renderer, node, parent):
         from psx.renderers.kivy.kivy import KivyHandle
-        widget = BoxLayout(orientation="vertical", padding=0, spacing=0)
+        widget = (
+            Widget(size_hint=(None, None))
+            if renderer._sfle_constraints is not None
+            else BoxLayout(orientation="vertical", padding=0, spacing=0)
+        )
         return KivyHandle("Box", widget, dict(node.props))
 
     def update(self, renderer, handle, changed, removed):
@@ -21,6 +26,9 @@ class KivyBoxAdapter:
             )
 
     def insert(self, renderer, parent, child, index):
+        if renderer._sfle_constraints is not None:
+            from psx.renderers.kivy.flex import KivySFLEFlexAdapter
+            return KivySFLEFlexAdapter().insert(renderer, parent, child, index)
         widget = parent.widget
         child_widget = child.widget
         child_widget.size_hint = (1, 1)
@@ -28,10 +36,16 @@ class KivyBoxAdapter:
         return True
 
     def move(self, renderer, parent, child, index):
+        if renderer._sfle_constraints is not None:
+            from psx.renderers.kivy.flex import KivySFLEFlexAdapter
+            return KivySFLEFlexAdapter().move(renderer, parent, child, index)
         # Only one child can ever be present; reordering is a no-op.
         return True
 
     def remove(self, renderer, parent, child):
+        if renderer._sfle_constraints is not None:
+            from psx.renderers.kivy.flex import KivySFLEFlexAdapter
+            return KivySFLEFlexAdapter().remove(renderer, parent, child)
         parent.widget.remove_widget(child.widget)
         return True
 

@@ -71,13 +71,53 @@ def test_registered_adapter_owns_component_lifecycle_without_reconciler_changes(
 def test_custom_host_adapter_can_mount_update_and_unmount() -> None:
     renderer = HeadlessRenderer()
     adapter = CountingAdapter()
-    renderer.register_adapter("Badge", adapter)
+    # Use a genuinely third-party tag: Badge is now a built-in with its
+    # own validated prop contract, so passing "value" to Badge is invalid.
+    renderer.register_adapter("CustomBadge", adapter)
     reconciler = Reconciler(renderer)
 
-    node = create_element("Badge", value="one", key="badge")
+    node = create_element("CustomBadge", value="one", key="badge")
     handle = reconciler.render(node).handle
-    reconciler.render(create_element("Badge", value="two", key="badge"))
+    reconciler.render(create_element("CustomBadge", value="two", key="badge"))
     assert reconciler.root.handle is handle
     assert handle.props["value"] == "two"
     reconciler.unmount()
     assert adapter.calls == ["create", "update", "destroy"]
+
+
+def test_failed_native_event_disconnect_clears_callback_and_continues_destroy() -> None:
+    """A failing backend disconnect must not strand application callbacks."""
+    import gc
+    import weakref
+
+    class Payload:
+        pass
+
+    payload = Payload()
+    weak_payload = weakref.ref(payload)
+    renderer = HeadlessRenderer()
+    reconciler = Reconciler(renderer)
+    declaration = Button("Trigger", on_click=lambda value=payload: value)
+    mounted = reconciler.render(declaration)
+    slot, _subscription = mounted.event_slots["on_click"]
+    handle = mounted.handle
+    original_unbind = renderer.unbind_event
+
+    def failing_unbind(subscription: object) -> None:
+        original_unbind(subscription)
+        raise RuntimeError("native event disconnect failed")
+
+    renderer.unbind_event = failing_unbind
+    with pytest.raises(RuntimeError, match="native event disconnect failed"):
+        reconciler.unmount()
+
+    assert reconciler.root is None
+    assert mounted.disposed
+    assert mounted.event_slots == {}
+    assert handle.destroyed
+    assert slot.invoke() is None
+
+    del declaration, mounted, payload
+    renderer.operations.clear()
+    gc.collect()
+    assert weak_payload() is None

@@ -25,6 +25,7 @@ class TkRadioGroupAdapter:
 
         master = parent.widget if parent is not None else renderer.root
         frame = ttk.Frame(master)
+        frame._psx_sfle_group = renderer._sfle_constraints is not None
         frame._psx_radios = {}          # value -> ttk.Radiobutton
         frame._psx_event_slot = None
         frame._psx_updating = False
@@ -48,8 +49,9 @@ class TkRadioGroupAdapter:
         if "value" in changed or "value" in removed:
             self._sync_checked(frame, props["value"])
 
-        # Repack to reflect spacing / padding / orientation changes.
-        self._repack(frame)
+        # In SFLE mode spacing/padding belong exclusively to SFLE.
+        if not frame._psx_sfle_group:
+            self._repack(frame)
 
     def bind_event(self, renderer, handle, event, slot):
         if event != "on_change":
@@ -84,10 +86,16 @@ class TkRadioGroupAdapter:
         radio_widget.configure(variable=frame._psx_var, value=str(value))
         frame._psx_radios[value] = radio_widget
         self._sync_checked(frame, parent.props["value"])
+        if frame._psx_sfle_group:
+            from psx.renderers.tkinter.flex import TkSFLEFlexAdapter
+            return TkSFLEFlexAdapter().insert(renderer, parent, child, index)
         self._repack(frame)
         return True
 
     def move(self, renderer, parent, child, index):
+        if parent.widget._psx_sfle_group:
+            from psx.renderers.tkinter.flex import TkSFLEFlexAdapter
+            return TkSFLEFlexAdapter().move(renderer, parent, child, index)
         self._repack(parent.widget)
         return True
 
@@ -96,6 +104,9 @@ class TkRadioGroupAdapter:
         value = child.props.get("value")
         if value is not None:
             frame._psx_radios.pop(value, None)
+        if frame._psx_sfle_group:
+            from psx.renderers.tkinter.flex import TkSFLEFlexAdapter
+            return TkSFLEFlexAdapter().remove(renderer, parent, child)
         child.widget.pack_forget()
         self._repack(frame)
         return True

@@ -15,7 +15,7 @@ def test_registered_component_is_available_in_markup_without_parser_changes() ->
 
     registry = builtin_component_registry()
     registry.register("Card", Card)
-    tree = psx("<Column><Card title={title} /></Column>", scope={"title": "Ada"}, registry=registry)
+    tree = psx("<Flex direction='column'><Card title={title} /></Flex>", scope={"title": "Ada"}, registry=registry)
     card = tree.children[0]
     assert card.type is Card
     assert card.props["title"] == "Ada"

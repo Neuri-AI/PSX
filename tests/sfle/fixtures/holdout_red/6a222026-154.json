@@ -1,0 +1,66 @@
+{
+  "seed": "0x6a222026",
+  "index": 154,
+  "input": {
+    "width": 320,
+    "gap": "10%",
+    "items": [
+      {
+        "basis": "40%",
+        "width": "30px",
+        "grow": 0,
+        "shrink": 1,
+        "pad": "4px"
+      },
+      {
+        "basis": "40%",
+        "width": "auto",
+        "grow": 1,
+        "shrink": 1,
+        "pad": "4px"
+      },
+      {
+        "basis": "30px",
+        "width": "30px",
+        "grow": 0,
+        "shrink": 1,
+        "pad": "4px"
+      }
+    ]
+  },
+  "type": "geometry",
+  "errors": [
+    {
+      "node": "n0",
+      "axis": "width",
+      "chromium": 114.578125,
+      "python": 114.5625,
+      "rust": 114.5625
+    },
+    {
+      "node": "n1",
+      "axis": "x",
+      "chromium": 146.578125,
+      "python": 146.5625,
+      "rust": 146.5625
+    },
+    {
+      "node": "n1",
+      "axis": "width",
+      "chromium": 114.5625,
+      "python": 114.578125,
+      "rust": 114.578125
+    }
+  ],
+  "fixture_id": "6a222026-154",
+  "chromium_reference": {
+    "version": "153.0.8010.12",
+    "playwright": "1.63.0",
+    "build": 1243,
+    "run": "https://github.com/Neuri-AI/PSX/actions/runs/38104700812"
+  },
+  "tolerance_px": 0.01,
+  "expected_rejection": false,
+  "acceptance": "RED — must match independent Chromium oracle for every listed axis",
+  "rule": "Fixture is immutable: refresh only on documented browser-version migration"
+}

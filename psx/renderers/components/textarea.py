@@ -35,7 +35,7 @@ def apply_qt_textarea(widget, props, binding):
 
     # Tamaño de fuente
     font = widget.font()
-    font.setPointSize(int(round(props["font_size"])))
+    font.setPixelSize(max(1, round(props["font_size"])))
     widget.setFont(font)
 
     # Read-only / enabled
@@ -58,6 +58,8 @@ def apply_kivy_textarea(widget, props):
 
 def apply_tk_textarea(widget, props):
     widget._psx_updating = True
+    # Controlled updates remain writable even if the previous view was locked.
+    widget.configure(state="normal")
 
     # Establecer contenido (Tkinter Text no tiene set directo)
     current = widget.get("1.0", "end-1c")
@@ -66,13 +68,13 @@ def apply_tk_textarea(widget, props):
         widget.insert("1.0", props["value"])
 
     widget.configure(
-        font=("TkDefaultFont", int(round(props["font_size"]))),
+        font=("TkDefaultFont", -max(1, round(props["font_size"]))),
         state=(
-            "disabled" if not props["enabled"] else
+            "disabled" if not props["enabled"] or props["read_only"] else
             "normal"
         ),
     )
-    # read_only no es un estado nativo de tk.Text; se simula bloqueando edición
-    # mediante bind de teclas, o se ignora en esta implementación base.
+    # Keep synthetic property updates out of the real-edit <<Modified>> path.
+    widget.edit_modified(False)
 
     widget._psx_updating = False

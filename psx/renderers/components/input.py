@@ -31,7 +31,7 @@ def apply_qt_input(widget, props, binding):
     widget.setPlaceholderText(props["placeholder"])
 
     font = widget.font()
-    font.setPointSize(int(round(props["font_size"])))
+    font.setPixelSize(max(1, round(props["font_size"])))
     widget.setFont(font)
 
     widget.setReadOnly(props["read_only"])
@@ -57,21 +57,71 @@ def apply_kivy_input(widget, props):
 
     widget._psx_updating = False
 
-def apply_tk_input(widget, props, binding):
+def apply_tk_input(widget, props, binding=None):
+    """Render a Tk Entry placeholder in its text plane without an opaque label.
+
+    A separate display StringVar holds hints; widget.var remains the real
+    application value and never contains the placeholder.
+    """
     widget._psx_updating = True
+    try:
+        if widget.var.get() != props["value"]:
+            widget.var.set(props["value"])
+        widget._psx_placeholder = props["placeholder"]
+        widget._psx_password = bool(props["password"])
+        size = max(1, round(props["font_size"]))
+        widget.configure(
+            font=("TkDefaultFont", -size),
+            state=(
+                "disabled" if not props["enabled"] else
+                "readonly" if props["read_only"] else "normal"
+            ),
+        )
+        if not hasattr(widget, "_psx_sync_hint"):
+            widget._psx_input_native_foreground = str(widget.cget("foreground"))
+            widget._psx_input_foreground = widget._psx_input_native_foreground
+            widget._psx_hint_active = False
 
-    if widget.var.get() != props["value"]:
-        widget.var.set(props["value"])
+            def sync_hint(*_args):
+                if not widget.winfo_exists():
+                    return
+                actual = widget.var.get()
+                show_hint = (
+                    bool(widget._psx_placeholder)
+                    and not actual
+                    and widget.focus_get() is not widget
+                    and str(widget.cget("state")) != "disabled"
+                )
+                display = widget._psx_placeholder if show_hint else actual
+                widget._psx_hint_active = show_hint
+                if widget._psx_display_var.get() != display:
+                    previous = widget._psx_updating
+                    widget._psx_updating = True
+                    try:
+                        widget._psx_display_var.set(display)
+                    finally:
+                        widget._psx_updating = previous
+                widget.configure(
+                    show="" if show_hint or not widget._psx_password else "*",
+                    foreground=(
+                        "#777777" if show_hint
+                        else widget._psx_input_foreground
+                    ),
+                )
 
-    widget.configure(
-        placeholder=props["placeholder"],
-        font=("TkDefaultFont", int(round(props["font_size"]))),
-        show="*" if props["password"] else "",
-        state=(
-            "disabled" if not props["enabled"] else
-            "readonly" if props["read_only"] else
-            "normal"
-        ),
-    )
+            def sync_edit(*_args):
+                if (getattr(widget, "_psx_updating", False)
+                        or widget._psx_hint_active):
+                    return
+                entered = widget._psx_display_var.get()
+                if widget.var.get() != entered:
+                    widget.var.set(entered)
 
-    widget._psx_updating = False
+            widget._psx_sync_hint = sync_hint
+            widget._psx_display_var.trace_add("write", sync_edit)
+            widget.var.trace_add("write", sync_hint)
+            widget.bind("<FocusIn>", sync_hint, add="+")
+            widget.bind("<FocusOut>", sync_hint, add="+")
+        widget._psx_sync_hint()
+    finally:
+        widget._psx_updating = False

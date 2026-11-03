@@ -27,6 +27,15 @@ class MountedInstance:
     contexts: dict[object, object] = field(default_factory=dict)
     attached: bool = False
     disposed: bool = False
+    # Logical component lifetime is intentionally independent from whether its
+    # native subtree is currently attached to a toolkit parent.  Viewport
+    # materialization only toggles this flag; it never disposes hooks, refs or
+    # the declarative identity of the instance.
+    native_materialized: bool = True
+    # A suspended logical host owns no native resource. Unlike an unattached
+    # handle, it must not receive native updates or create native children.
+    native_suspended: bool = False
+    structural_binding: object | None = None
     _placed_handle: object | None = None
 
     def native_handle(self) -> object:

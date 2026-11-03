@@ -9,8 +9,14 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 
-from psx.core.contracts import IMAGE_DEFAULTS, IMAGE_PROPS, validate_image_props
+from psx.core.contracts import IMAGE_CONTRACT, IMAGE_DEFAULTS, IMAGE_PROPS
+from psx.core.props import FLEX_ITEM_PROPS
 from psx.core.errors import RendererCapabilityError
+
+
+def validate_image_props(props: Mapping[str, object]) -> None:
+    """Keep the adapter-facing validator API and include Cinnamon metadata."""
+    IMAGE_CONTRACT.validate(props)
 
 
 def image_props(props: Mapping[str, object]) -> dict[str, object]:
@@ -23,7 +29,7 @@ def updated_image_props(
     changed: Mapping[str, object],
     removed: frozenset[str],
 ) -> dict[str, object]:
-    unknown = (set(changed) | set(removed)) - IMAGE_PROPS
+    unknown = (set(changed) | set(removed)) - IMAGE_PROPS - FLEX_ITEM_PROPS
     if unknown:
         raise RendererCapabilityError(
             f"Unsupported Image props: {', '.join(sorted(unknown))}"

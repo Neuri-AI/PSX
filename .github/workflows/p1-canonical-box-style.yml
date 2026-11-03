@@ -1,0 +1,37 @@
+name: P1 canonical item box style characterization
+
+on:
+  push:
+    branches: [develop]
+    paths:
+      - "psx/sfle/canonical_box_style.py"
+      - "psx/core/layout_item.py"
+      - "psx/sfle/lengths.py"
+      - "tests/test_p1_canonical_box_style.py"
+      - ".github/workflows/p1-canonical-box-style.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  pure-contract:
+    name: P1 IM-01 pure contract / Python ${{ matrix.python-version }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install pure test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[dev]"
+      - name: Test canonical item box boundary
+        run: python -m pytest -q tests/test_p1_canonical_box_style.py
+      - name: Compile changed modules
+        run: python -m compileall -q psx/sfle/canonical_box_style.py tests/test_p1_canonical_box_style.py

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterable, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field, replace
 from enum import Enum
 from types import MappingProxyType
 from typing import TYPE_CHECKING, Callable, TypeAlias
@@ -41,14 +41,11 @@ from psx.core.contracts import (
     TEXTAREA_PROPS,
     TEXTAREA_DEFAULTS,
 
-    COLUMN_CONTRACT,
-    COLUMN_PROPS,
-    COLUMN_DEFAULTS,
+    FLEX_CONTRACT,
+    GRID_CONTRACT,
+    GRID_ITEM_CONTRACT,
 
 
-    ROW_CONTRACT,
-    ROW_PROPS,
-    ROW_DEFAULTS,
 
     # Spacer
     SPACER_PROPS,
@@ -93,8 +90,6 @@ from .validators import (
     validate_text_props,
     validate_slider_props,
     validate_textarea_props,
-    validate_column_props,
-    validate_row_props,
     validate_checkbox_props,
     validate_input_props,
     validate_button_props,
@@ -133,6 +128,14 @@ class VNode:
     key: Key | None
     props: Mapping[str, object]
     children: tuple["VNode", ...]
+    # Optional immutable stylesheet metadata. Kept outside props because native
+    # component adapters must never receive CSS-only class/style attributes.
+    css_source: object | None = field(default=None, compare=False, repr=False)
+    css_computed: object | None = field(default=None, compare=False, repr=False)
+    # Scoped stylesheet snapshot for components rendered after their parent.
+    css_stylesheet: object | None = field(default=None, compare=False, repr=False)
+    # Compiler-only metadata for HTML-like control composition, not native props.
+    markup_meta: object | None = field(default=None, compare=False, repr=False)
 
 
 def _freeze_props(props: Mapping[str, object]) -> Mapping[str, object]:
@@ -180,9 +183,13 @@ def create_element(
     from .component import ComponentType
 
     if node_type == "Text":
-        validate_text_props(props)
-    if key is not None and not isinstance(key, (str, int)):
-        raise TypeError("PSX keys must be str, int, or None.")
+        TEXT_CONTRACT.validate(props)
+    if node_type == "Grid":
+        GRID_CONTRACT.validate(props)
+    elif node_type == "GridItem":
+        GRID_ITEM_CONTRACT.validate(props)
+    if key is not None and (isinstance(key, bool) or not isinstance(key, (str, int))):
+        raise TypeError("PSX keys must be str, int, or None (not bool).")
     if ref is not None:
         props["ref"] = ref
     if isinstance(node_type, ComponentType):
@@ -200,7 +207,17 @@ def create_element(
     else:
         raise TypeError(
             "PSX element type must be a host name, Fragment, NativeWidget, or @component value.")
-    return VNode(kind, node_type, key, _freeze_props(props), normalize_children(children))
+    resolved = normalize_children(children)
+    if node_type == "Grid":
+        for child in resolved:
+            if child.kind is NodeKind.HOST and child.type != "GridItem":
+                raise InvalidChildError("Grid requires direct GridItem children.")
+            if child.kind not in (NodeKind.HOST, NodeKind.COMPONENT):
+                raise InvalidChildError("Grid requires GridItem or a component resolving to GridItem.")
+    elif node_type == "GridItem":
+        if len(resolved) != 1 or resolved[0].kind not in (NodeKind.HOST, NodeKind.COMPONENT):
+            raise InvalidChildError("GridItem requires exactly one component root.")
+    return VNode(kind, node_type, key, _freeze_props(props), resolved)
 
 
 class _Fragment:
@@ -229,18 +246,26 @@ def _layout(name: str, children: tuple[object, ...], spacing: int, key: Key | No
     return create_element(name, *children, key=key, spacing=spacing, **props)
 
 
-def Row(
-    *children: object, spacing: int = 0,
-    padding: int | tuple[int, int] | tuple[int, int, int, int] = 0,
-    align: str = "stretch", expand: bool | tuple[bool, ...] = False,
-    enabled: bool = True, key: Key | None = None, ref: object | None = None,
+def Flex(
+    *children: object,
+    direction: str = "row",
+    wrap: str = "nowrap",
+    justify_content: str = "flex-start",
+    align_items: str = "stretch",
+    align_content: str = "normal",
+    gap: int | float | str = 0,
+    key: Key | None = None,
+    ref: object | None = None,
     **props: object,
 ) -> VNode:
-    """Horizontal portable container with optional per-child expansion."""
-    options = dict(spacing=spacing, padding=padding, align=align,
-                   expand=expand, enabled=enabled, **props)
-    ROW_CONTRACT.validate_builder(options)
-    return create_element("Row", *children, key=key, ref=ref, **options)
+    """Create a validated SFLE Flex declaration (G1; native wiring is G2)."""
+    options = dict(
+        direction=direction, wrap=wrap, justify_content=justify_content,
+        align_items=align_items, align_content=align_content, gap=gap, **props,
+    )
+    FLEX_CONTRACT.validate_builder(options)
+    return create_element("Flex", *children, key=key, ref=ref, **options)
+
 
 
 def Text(
@@ -289,6 +314,7 @@ def Input(
     password: bool = False,
     on_change: Callable[[str], None] | None = None,
     on_submit: Callable[[], None] | None = None,
+    on_click: Callable[[], None] | None = None,
     key: Key | None = None,
     ref: object | None = None,
     **props: object,
@@ -302,6 +328,7 @@ def Input(
         password=password,
         on_change=on_change,
         on_submit=on_submit,
+        on_click=on_click,
         **props,
     )
     INPUT_CONTRACT.validate_builder(options)
@@ -342,22 +369,6 @@ def TextArea(
     return create_element("TextArea", key=key, ref=ref, **options)
 
 
-def Column(
-    *children: object,
-    spacing: int = 0,
-    padding: int | tuple[int, int] | tuple[int, int, int, int] = 0,
-    align: str = "stretch",
-    expand: bool | tuple[bool, ...] = False,
-    enabled: bool = True,
-    key: Key | None = None,
-    ref: object | None = None,
-    **props: object,
-) -> VNode:
-    """Vertical portable container with optional per-child expansion."""
-    options = dict(spacing=spacing, padding=padding, align=align,
-                   expand=expand, enabled=enabled, **props)
-    COLUMN_CONTRACT.validate_builder(options)
-    return create_element("Column", *children, key=key, ref=ref, **options)
 
 def Slider(
     *,
@@ -613,8 +624,8 @@ def Scroll(
     direction: str = "vertical",
     content_direction: str = "vertical",
     scrollbar: str = "auto",
-    width: int | float | None = None,
-    height: int | float | None = None,
+    width: int | float | str | None = None,
+    height: int | float | str | None = None,
     spacing: int = 0,
     padding: int | tuple[int, int] | tuple[int, int, int, int] = 0,
     enabled: bool = True,
@@ -623,6 +634,36 @@ def Scroll(
     **props: object,
 ) -> VNode:
     """Portable clipped viewport with managed multi-child content."""
+    from psx.layout.contracts.lengths import LengthKind, parse_length
+
+    # String CSS lengths describe a Cinnamon content-box constraint, not a
+    # native toolkit pixel size. Keep the existing numeric Scroll API intact.
+    for axis, value in (("width", width), ("height", height)):
+        if not isinstance(value, str):
+            continue
+        try:
+            length = parse_length(value)
+        except (TypeError, ValueError) as exc:
+            raise RendererCapabilityError(
+                f"Scroll.{axis} requires a supported CSS length."
+            ) from exc
+        if (length.kind not in (
+            LengthKind.PX, LengthKind.PERCENT, LengthKind.VW, LengthKind.VH,
+            LengthKind.VMIN, LengthKind.VMAX,
+        ) or length.value is None or length.value <= 0):
+            raise RendererCapabilityError(
+                f"Scroll.{axis} requires a positive CSS length."
+            )
+        target = f"layout_{axis}"
+        if target in props:
+            raise RendererCapabilityError(
+                f"Scroll.{axis} conflicts with {target}."
+            )
+        props[target] = value
+        if axis == "width":
+            width = None
+        else:
+            height = None
     config = dict(
         direction=direction, content_direction=content_direction,
         scrollbar=scrollbar, width=width, height=height,
@@ -651,3 +692,55 @@ def Badge(
     )
     BADGE_CONTRACT.validate_builder(options)
     return create_element("Badge", key=key, ref=ref, **options)
+
+
+def Grid(*children: object, columns: int = 12, gap: object = 0,
+         row_gap: object | None = None, column_gap: object | None = None,
+         key: Key | None = None, ref: object | None = None,
+         **props: object) -> VNode:
+    """Declare a future native Grid; geometry is unavailable until G2/G3."""
+    from .grid_contract import normalize_grid_props
+    options = dict(columns=columns, gap=gap, row_gap=row_gap,
+                   column_gap=column_gap, **props)
+    validated = dict(normalize_grid_props(options))
+    resolved = normalize_children(children)
+    lifted = []
+    for child in resolved:
+        if child.kind is NodeKind.HOST and child.type == "Scroll":
+            # A Grid-owned scroll viewport may enclose its one GridItem
+            # declaration. Lift only the layout slot, keeping Scroll as the
+            # actual native viewport enclosing the item's content root.
+            slots = normalize_children(child.children)
+            if (len(slots) != 1 or slots[0].kind is not NodeKind.HOST
+                    or slots[0].type != "GridItem"
+                    or len(normalize_children(slots[0].children)) != 1):
+                raise InvalidChildError(
+                    "A direct Grid Scroll must contain exactly one GridItem."
+                )
+            slot = slots[0]
+            scrolling = replace(
+                child, children=normalize_children(slot.children),
+            )
+            lifted.append(replace(slot, children=(scrolling,)))
+        else:
+            lifted.append(child)
+    resolved = tuple(lifted)
+    for child in resolved:
+        if child.kind is NodeKind.HOST and child.type != "GridItem":
+            raise InvalidChildError("Grid requires direct GridItem children.")
+        if child.kind not in (NodeKind.HOST, NodeKind.COMPONENT):
+            raise InvalidChildError("Grid requires GridItem or a component resolving to GridItem.")
+    return create_element("Grid", *resolved, key=key, ref=ref, **validated)
+
+
+def GridItem(*children: object, span: object = "auto", offset: object = 0,
+             key: Key | None = None, ref: object | None = None,
+             **props: object) -> VNode:
+    """Declare a planned grid item; requires one portable component root."""
+    from .grid_contract import normalize_grid_item_props
+    validated = dict(normalize_grid_item_props(
+        dict(span=span, offset=offset, **props)))
+    resolved = normalize_children(children)
+    if len(resolved) != 1:
+        raise InvalidChildError("GridItem requires exactly one component root.")
+    return create_element("GridItem", *resolved, key=key, ref=ref, **validated)

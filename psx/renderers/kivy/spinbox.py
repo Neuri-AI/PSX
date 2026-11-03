@@ -43,7 +43,10 @@ class KivySpinBoxAdapter:
         plus = Button(text="+", size_hint=(None, None), width=48, height=48)
         for child in (minus, entry, plus):
             frame.add_widget(child)
-        frame.size = (216, 48)
+        frame._psx_sfle_spinbox = renderer._sfle_constraints is not None
+        frame._psx_intrinsic_size = (216, 48)
+        if not frame._psx_sfle_spinbox:
+            frame.size = frame._psx_intrinsic_size
         frame._psx_parts = (minus, entry, plus)
         frame._psx_props = props
         frame._psx_slot = None

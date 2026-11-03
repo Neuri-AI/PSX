@@ -1,0 +1,66 @@
+name: Grid Scroll viewport integration
+on:
+  pull_request:
+    branches: [develop]
+    paths:
+      - 'psx/core/vnode.py'
+      - 'psx/core/layout_tree.py'
+      - 'psx/renderers/components/scroll.py'
+      - 'psx/sfle/grid_native_composition.py'
+      - 'psx/sfle/grid_native_measurement.py'
+      - 'psx/sfle/mixed_grid_native.py'
+      - 'psx/sfle/native_scroll_viewport.py'
+      - 'tests/test_grid_html_parent.py'
+      - 'tests/test_native_scroll_viewport.py'
+      - 'tests/test_viewport_lengths.py'
+      - '.github/workflows/grid-scroll-viewport.yml'
+permissions:
+  contents: read
+jobs:
+  grid-scroll:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 25
+    env:
+      QT_QPA_PLATFORM: offscreen
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Qt headless system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends xvfb xauth libegl1 libopengl0 libxkbcommon-x11-0 libxcb-cursor0
+      - name: Install PSX and test runner
+        run: python -m pip install -e '.[pyside6]' pytest
+      - name: Certified Grid/Scroll API and viewport contracts
+        run: python -m pytest -q tests/test_native_scroll_viewport.py tests/test_viewport_lengths.py tests/test_grid_contract.py
+      - name: Real Qt Grid, nested Scroll and viewport resize
+        run: xvfb-run -a python -m pytest -q tests/test_grid_html_parent.py tests/test_native_scroll_hosts.py
+
+  native-backend:
+    name: Scroll-wrapped Grid viewport on ${{ matrix.backend }}
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        backend: [qt, tk, kivy]
+    env:
+      PSX_GRID_BACKEND: ${{ matrix.backend }}
+      PSX_QT_BINDING: pyside6
+      QT_QPA_PLATFORM: offscreen
+      KIVY_NO_ARGS: "1"
+      KIVY_NO_CONSOLELOG: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install native backend prerequisites
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends xvfb xauth python3-tk libegl1 libopengl0 libxkbcommon-x11-0 libxcb-cursor0 libmtdev1 libsdl2-2.0-0 libsdl2-image-2.0-0 libsdl2-ttf-2.0-0
+          python -m pip install -e '.[pyside6,kivy]' pytest
+      - name: Mounted Grid Scroll viewport regression
+        run: xvfb-run -a python -m pytest -q tests/test_mounted_grid_native_renderers.py -k 'scroll_wrapped_grid_item_uses_native_viewport_across_backends or scroll_rejects_grid_as_its_content_root'

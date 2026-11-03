@@ -30,11 +30,13 @@ class QtImageAdapter:
         core = importlib.import_module(f"{binding}.QtCore")
 
         widget = widgets.QLabel()
-        widget.setAlignment(core.Qt.AlignCenter)
+        widget.setAlignment(getattr(core.Qt, 'AlignmentFlag', core.Qt).AlignCenter)
         widget.setAccessibleName(props["alt"])
         widget._psx_source = None
         widget._psx_pixmap_cache = None
+        widget._psx_sfle_paint_cache = None
         widget._psx_props = props
+        widget._psx_sfle_image = renderer._sfle_constraints is not None
 
         self._load_and_apply(widget, props, binding)
         return QtHandle("Image", widget, props=props)
@@ -44,6 +46,7 @@ class QtImageAdapter:
         handle.props = props
         widget = handle.widget
         widget._psx_props = props
+        widget._psx_sfle_paint_cache = None
         self._load_and_apply(widget, props, renderer._binding_package)
 
     def bind_event(self, renderer, handle, event, slot):
@@ -54,8 +57,16 @@ class QtImageAdapter:
         return None
 
     def destroy(self, renderer, handle):
-        handle.widget.setParent(None)
-        handle.widget.deleteLater()
+        widget = handle.widget
+        # A retained native handle must not retain decoded or composed pixmaps.
+        widget.clear()
+        widget._psx_pixmap_cache = None
+        widget._psx_sfle_paint_cache = None
+        widget._psx_source = None
+        widget._psx_props = None
+        handle.props = {}
+        widget.setParent(None)
+        widget.deleteLater()
 
     # -- helpers ----------------------------------------------------------
 
@@ -91,8 +102,8 @@ class QtImageAdapter:
 
         scaled = pixmap.scaled(
             max(1, int(round(w))), max(1, int(round(h))),
-            core.Qt.IgnoreAspectRatio,
-            core.Qt.SmoothTransformation,
+            getattr(core.Qt, "AspectRatioMode", core.Qt).IgnoreAspectRatio,
+            getattr(core.Qt, "TransformationMode", core.Qt).SmoothTransformation,
         )
         canvas = gui.QPixmap(int(target_w), int(target_h))
         canvas.fill(gui.QColor(0, 0, 0, 0))
@@ -101,6 +112,56 @@ class QtImageAdapter:
         painter.end()
 
         widget.setPixmap(canvas)
-        widget.setFixedSize(int(target_w), int(target_h))
+        if not widget._psx_sfle_image:
+            widget.setFixedSize(int(target_w), int(target_h))
         widget.setAccessibleName(props["alt"])
         widget.setEnabled(props["enabled"])
+
+    @staticmethod
+    def paint_sfle(widget, width: int, height: int, binding: str) -> None:
+        """Paint only inside the rectangle computed and applied by SFLE."""
+        pixmap = widget._psx_pixmap_cache
+        gui = importlib.import_module(f"{binding}.QtGui")
+        core = importlib.import_module(f"{binding}.QtCore")
+        if pixmap is None or pixmap.isNull():
+            # Keep the alt-text placeholder visible while the resource is unavailable.
+            widget.setText(str(widget._psx_props["alt"]))
+            return
+        if width <= 0 or height <= 0:
+            widget.setPixmap(gui.QPixmap())
+            return
+        # A completed native image paint is an accepted, reusable bitmap.
+        # Occluded/offscreen images need not be rescaled at every window
+        # resize when neither the source nor the *actual* target rectangle
+        # changed. Do not hide the underlying widget: native exposure,
+        # focus, scroll and stacking semantics remain intact.
+        paint_key = (
+            pixmap.cacheKey(), width, height,
+            widget._psx_props["fit"], id(widget._psx_props),
+        )
+        previous = getattr(widget, "_psx_sfle_paint_cache", None)
+        if previous is not None and previous[0] == paint_key:
+            displayed = widget.pixmap()
+            if (displayed is not None and not displayed.isNull()
+                    and displayed.cacheKey() == previous[1]):
+                return
+        x, y, w, h = compute_fit_rect(
+            pixmap.width(), pixmap.height(), width, height,
+            widget._psx_props["fit"],
+        )
+        canvas = gui.QPixmap(width, height)
+        canvas.fill(gui.QColor(0, 0, 0, 0))
+        painter = gui.QPainter(canvas)
+        try:
+            painted = pixmap.scaled(
+                max(1, round(w)), max(1, round(h)),
+                getattr(core.Qt, "AspectRatioMode", core.Qt).IgnoreAspectRatio,
+                getattr(core.Qt, "TransformationMode", core.Qt).SmoothTransformation,
+            )
+            painter.drawPixmap(round(x), round(y), painted)
+        finally:
+            painter.end()
+        widget.setPixmap(canvas)
+        widget._psx_sfle_paint_cache = (
+            paint_key, widget.pixmap().cacheKey(),
+        )

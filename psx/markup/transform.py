@@ -10,14 +10,17 @@ from __future__ import annotations
 import argparse
 import ast
 import json
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, fields, is_dataclass
 from pathlib import Path
 from typing import Iterable
 
 from psx.core.registry import builtin_component_registry
+from psx.markup.html_aliases import PORTABLE_HTML_ALIASES
 
 from .ast import Document, Fragment, Node, Reference, ReferencePart, TextNode
 from .parser import parse
+from .expressive_ast import parse_expressive_expression, Name as ExpressiveName
+from .expressive_lower import helper_import, lower
 
 
 
@@ -58,6 +61,7 @@ class _Transformer(ast.NodeTransformer):
         self.filename = filename
         self.templates: list[_Template] = []
         self.entries: list[SourceMapEntry] = []
+        self.expressive_count = 0
 
     def visit_Call(self, node: ast.Call) -> ast.AST:
         self.generic_visit(node)
@@ -65,6 +69,26 @@ class _Transformer(ast.NodeTransformer):
             return node
         source = node.args[0].value
         template_filename = f"{self.filename}:{node.lineno}:{node.col_offset + 1}"
+        # Only statically authored M4B source may use expressive JSX operators.
+        # Dynamic and explicitly scoped M4A calls remain on the old safe path.
+        if _has_expressive_interpolation(source):
+            tree = parse_expressive_expression(source, filename=template_filename)
+            replacement = lower(tree, filename=template_filename)
+            links = _expressive_css_links(tree)
+            # Global application CSS may contain type selectors even when
+            # expressive markup has no class/style attributes.
+            replacement = ast.Call(
+                func=ast.Attribute(value=ast.Name(id="_psx_expr_element", ctx=ast.Load()), attr="compute_styles", ctx=ast.Load()),
+                args=[replacement, ast.Tuple(elts=[ast.Constant(name) for name in links], ctx=ast.Load())],
+                keywords=[],
+            )
+            self.expressive_count += 1
+            self.entries.append(SourceMapEntry(
+                template_name=f"_psx_expressive_{self.expressive_count - 1}",
+                python_line=node.lineno, python_column=node.col_offset + 1,
+                markup_references=tuple(_expressive_reference_locations(tree)),
+            ))
+            return ast.copy_location(replacement, node)
         document = parse(source, filename=template_filename)
         identifiers = _required_identifiers(document)
         # A single leading underscore avoids Python class-body name mangling
@@ -101,7 +125,73 @@ class _Transformer(ast.NodeTransformer):
         return ast.copy_location(replacement, node)
 
 
-def transform_source(source: str, *, filename: str = "<module>") -> TransformResult:
+def _expressive_reference_locations(node: object) -> Iterable[tuple[int, int]]:
+    """Retain original source positions for every lexical name in the AST."""
+    if isinstance(node, ExpressiveName):
+        yield (node.location.line, node.location.column)
+    if is_dataclass(node):
+        for field in fields(node):
+            if field.name != "location":
+                yield from _expressive_reference_locations(getattr(node, field.name))
+    elif isinstance(node, (tuple, list)):
+        for child in node:
+            yield from _expressive_reference_locations(child)
+
+
+def _has_expressive_interpolation(source: str) -> bool:
+    """Find expressive operators in markup expressions, not quoted literals.
+
+    Only expression braces activate G2/G3. Text and quoted attributes containing
+    question marks or ampersands keep their existing M4B template behavior.
+    """
+    # Composite inline attribute literals require the expressive M4B path.
+    # The restricted M4A runtime never enters this transform.
+    # Native needs the CSS-aware VNode path even without an arrow expression.
+    import re
+    if re.search(r"<Native(?=[\s/>])", source):
+        return True
+    if "={{" in source or "={[" in source or "={(" in source:
+        return True
+    # Quoted attribute interpolation is lexical expressive syntax as well,
+    # even without an arrow or conditional expression elsewhere in the tree.
+    if "${" in source:
+        return True
+    # Legacy brace interpolation is enabled only for CSS/class attributes.
+    # Preserve quoted literals in all unrelated attributes.
+    import re
+    if re.search(r'(?:style|class|class_name)\s*=\s*["\'][^"\']*\{[A-Za-z_][A-Za-z0-9_.\[\]]*\}[^"\']*["\']', source):
+        return True
+    depth = 0
+    quoted: str | None = None
+    index = 0
+    while index < len(source):
+        ch = source[index]
+        if quoted is not None:
+            if ch == "\\":
+                index += 2
+                continue
+            if ch == quoted:
+                quoted = None
+            index += 1
+            continue
+        # Quotes only delimit literals *inside* a braced expression.  In markup
+        # text an apostrophe (for example, ``you're``) is ordinary content and
+        # must not make the scanner ignore a later ``{visible && <Text />}``.
+        if depth and ch in ("'", '"'):
+            quoted = ch
+        elif ch == "{":
+            depth += 1
+        elif ch == "}":
+            depth = max(depth - 1, 0)
+        elif depth and (source.startswith(('f"', "f'", 'F"', "F'"), index) or source.startswith("&&", index) or source.startswith("||", index) or ch == "?" or ch == "[" or source.startswith(".map(", index) or source.startswith("=>", index)):
+            return True
+        index += 1
+    return False
+
+
+def transform_source(
+    source: str, *, filename: str = "<module>", precompiled: bool = False,
+) -> TransformResult:
     """Transform statically known inline ``psx`` calls into lexical factories.
 
     Calls that already supply ``scope=`` and calls whose first argument is not a
@@ -110,15 +200,23 @@ def transform_source(source: str, *, filename: str = "<module>") -> TransformRes
     module = ast.parse(source, filename=filename)
     transformer = _Transformer(filename)
     module = transformer.visit(module)
-    if transformer.templates:
+    if transformer.templates or transformer.expressive_count or precompiled:
         insertion = _insertion_index(module.body)
-        declarations = _factory_declarations(transformer.templates)
+        declarations = ([] if not transformer.expressive_count else [helper_import()])
+        declarations.extend(_factory_declarations(transformer.templates) if transformer.templates else [])
+        # A frozen module has already passed through this lexical transform.
+        # @component must never try to recover its original .py with inspect.
+        if precompiled:
+            declarations.insert(0, ast.Assign(
+                targets=[ast.Name(id="__psx_build_precompiled__", ctx=ast.Store())],
+                value=ast.Constant(value=True),
+            ))
         module.body[insertion:insertion] = declarations
     ast.fix_missing_locations(module)
     return TransformResult(
         source=ast.unparse(module) + "\n",
         source_map=SourceMap(filename, tuple(transformer.entries)),
-        transformed_calls=len(transformer.templates),
+        transformed_calls=len(transformer.templates) + transformer.expressive_count,
     )
 
 
@@ -205,7 +303,7 @@ def _collect_node_identifiers(node: Node, names: set[str]) -> None:
         for child in node.children:
             _collect_node_identifiers(child, names)
         return
-    if not builtin_component_registry().contains(node.name):
+    if node.name not in PORTABLE_HTML_ALIASES and not builtin_component_registry().contains(node.name):
         names.add(node.name)
     for attribute in node.attributes:
         if isinstance(attribute.value, Reference):
@@ -238,3 +336,35 @@ def _node_reference_locations(node: Node) -> Iterable[tuple[int, int]]:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+
+def _expressive_css_links(node: object) -> tuple[str, ...]:
+    """Collect only statically declared local CSS links in expressive markup."""
+    from psx.core.errors import MarkupSyntaxError
+    from .expressive_ast import Element as ExpressiveElement, Literal
+    found: list[str] = []
+    def visit(value: object) -> None:
+        if isinstance(value, ExpressiveElement) and value.tag == "link":
+            attrs = dict(value.attributes)
+            rel = attrs.get("rel")
+            href = attrs.get("href")
+            if (
+                set(attrs) != {"rel", "href"}
+                or not isinstance(rel, str) or rel != "stylesheet"
+                or not isinstance(href, str) or not href.endswith(".css")
+                or value.children
+            ):
+                raise MarkupSyntaxError(
+                    'link requires rel="stylesheet" and a literal local CSS href',
+                    filename="<psx>", line=value.location.line, column=value.location.column,
+                )
+            found.append(href)
+            return
+        if is_dataclass(value):
+            for field in fields(value):
+                if field.name != "location":
+                    visit(getattr(value, field.name))
+        elif isinstance(value, (list, tuple)):
+            for item in value:
+                visit(item)
+    visit(node)
+    return tuple(found)

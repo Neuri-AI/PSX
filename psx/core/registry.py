@@ -14,11 +14,10 @@ from .component import ComponentType
 from .contracts import (
     BUTTON_CONTRACT,
     CHECKBOX_CONTRACT,
-    COLUMN_CONTRACT,
+    FLEX_CONTRACT,
     DIVIDER_CONTRACT,
     IMAGE_CONTRACT,
     INPUT_CONTRACT,
-    ROW_CONTRACT,
     SLIDER_CONTRACT,
     SPACER_CONTRACT,
     TEXT_CONTRACT,
@@ -32,6 +31,8 @@ from .contracts import (
     BADGE_CONTRACT,
     SPINBOX_CONTRACT,
     SCROLL_CONTRACT,
+    GRID_CONTRACT,
+    GRID_ITEM_CONTRACT,
     ComponentContract,
 )
 from .errors import DuplicateComponentError, UnknownComponentError
@@ -120,15 +121,17 @@ def builtin_component_registry() -> ComponentRegistry:
     Importing this function imports only PSX core modules; GUI bindings remain
     lazy and optional. Every call returns an isolated registry.
     """
+    from ..extensions import WebView, Webview
     from .native import Native
     from .vnode import (
         Button,
         Checkbox,
-        Column,
+        Flex,
+        Grid,
+        GridItem,
         Divider,
         Fragment,
         Input,
-        Row,
         Slider,
         Spacer,
         Text,
@@ -147,12 +150,9 @@ def builtin_component_registry() -> ComponentRegistry:
     )
 
     registry = ComponentRegistry()
-    registry.register_definition(ComponentDefinition(
-        "Column", Column, contract=COLUMN_CONTRACT,
-        markup_integer_properties=frozenset({"spacing", "padding"})))
-    registry.register_definition(ComponentDefinition(
-        "Row", Row, contract=ROW_CONTRACT,
-        markup_integer_properties=frozenset({"spacing", "padding"})))
+    registry.register("Flex", Flex, contract=FLEX_CONTRACT)
+    registry.register("Grid", Grid, contract=GRID_CONTRACT)
+    registry.register("GridItem", GridItem, contract=GRID_ITEM_CONTRACT)
     registry.register("Text", Text, contract=TEXT_CONTRACT)
     registry.register("Button", Button, contract=BUTTON_CONTRACT)
     registry.register("Input", Input, contract=INPUT_CONTRACT)
@@ -172,6 +172,8 @@ def builtin_component_registry() -> ComponentRegistry:
     registry.register("Badge", Badge, contract=BADGE_CONTRACT)
     registry.register("SpinBox", SpinBox, contract=SPINBOX_CONTRACT)
     registry.register("Scroll", Scroll, contract=SCROLL_CONTRACT)
+    registry.register("WebView", WebView)
+    registry.register("Webview", Webview)
     registry.register("Box", Box)
     registry.register("Native", Native)
 

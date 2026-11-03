@@ -1,0 +1,71 @@
+name: F5.5 G6 integral documentation preflight
+
+on:
+  pull_request:
+    branches: [develop]
+    paths:
+      - "docs/public/**"
+      - "docs/architecture/f5-5-g6-*"
+      - "scripts/docs/**"
+      - "examples/f5_5_*/**"
+      - ".github/workflows/f5-5-integral-certification.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  docs-and-api:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install -e .
+      - name: Verify navigation, API export coverage and example manifest
+        run: python -m scripts.docs.validate_f5_5_integral
+      - name: Verify generated API reference has not drifted
+        run: python -m scripts.docs.generate_g4_reference --check
+      - name: Structural documentation tests
+        run: python -m unittest discover -s tests -p "test_docs_*.py" -v
+  examples-headless:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - run: python -m pip install -e .
+      - run: python examples/f5_5_beginner/hello_world.py
+      - run: python examples/f5_5_beginner/counter.py
+      - run: python -m unittest -v test_examples
+        working-directory: examples/f5_5_beginner
+      - run: python -m unittest -v test_app
+        working-directory: examples/f5_5_task_board
+  native-linux:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        backend: [tkinter, pyside6, kivy]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: sudo apt-get update && sudo apt-get install -y xvfb python3-tk libegl1 libgl1 libopengl0 libmtdev1
+      - run: python -m pip install -e ".[${{ matrix.backend }}]"
+        if: matrix.backend != 'tkinter'
+      - run: python -m pip install -e .
+        if: matrix.backend == 'tkinter'
+      - run: xvfb-run -a python examples/f5_5_native_gallery/app.py --smoke
+        if: matrix.backend == 'tkinter'
+      - run: QT_QPA_PLATFORM=offscreen python examples/f5_5_native_gallery/qt_app.py --smoke
+        if: matrix.backend == 'pyside6'
+      - run: QT_QPA_PLATFORM=offscreen python examples/f5_5_task_board/native_qt.py --smoke
+        if: matrix.backend == 'pyside6'
+      - run: xvfb-run -a python examples/f5_5_native_gallery/kivy_app.py --smoke
+        if: matrix.backend == 'kivy'

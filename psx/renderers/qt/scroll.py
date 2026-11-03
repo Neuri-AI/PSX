@@ -28,6 +28,7 @@ def _scroll_area_class(binding: str):
             self.setHorizontalScrollBarPolicy(policy.ScrollBarAlwaysOff)
             self.setVerticalScrollBarPolicy(policy.ScrollBarAlwaysOff)
             self._psx_props = None
+            self._psx_sfle_scroll = False
             self._indicators = {}
             self._fade = core.QTimer(self)
             self._fade.setSingleShot(True)
@@ -51,6 +52,12 @@ def _scroll_area_class(binding: str):
                 )
                 self._indicators[axis] = indicator
             self.viewport().installEventFilter(self)
+            # Desktop trackpads already deliver phased QWheelEvent streams.
+            # Grabbing a QScroller touch gesture on the same viewport gives
+            # two different handlers ownership of one gesture and may leave
+            # the scroller in a kinetic state after wheel input has stopped.
+            # The Scroll viewport owns wheel deltas directly instead.
+            self._psx_subpixel_remainder = {"x": 0.0, "y": 0.0}
 
         def eventFilter(self, source, event):
             if source is self.viewport() and event.type() == event_type.Resize:
@@ -61,37 +68,140 @@ def _scroll_area_class(binding: str):
             super().resizeEvent(event)
             self._refresh_indicators()
 
+        def _psx_scroll_delta(self, dx, dy):
+            """Consume X/Y movement once, handing unconsumed travel to parent."""
+            from psx.renderers.components.scroll import consume_scroll
+            props = self._psx_props
+            remaining_x, remaining_y = float(dx), float(dy)
+            if props is not None and props["enabled"]:
+                allow_x, allow_y = scroll_axes(props["direction"])
+                for axis, delta, enabled in (
+                    ("x", remaining_x, allow_x),
+                    ("y", remaining_y, allow_y),
+                ):
+                    if not enabled or not delta:
+                        continue
+                    bar = (self.horizontalScrollBar() if axis == "x"
+                           else self.verticalScrollBar())
+                    maximum = float(bar.maximum())
+                    if maximum <= 0:
+                        self._psx_subpixel_remainder[axis] = 0.0
+                        continue
+                    pending = delta + self._psx_subpixel_remainder[axis]
+                    next_value, residual = consume_scroll(
+                        float(bar.value()), maximum, pending,
+                    )
+                    # Float cancellation near a scrollbar bound can produce
+                    # microscopic residuals (~1e-16) even when all requested
+                    # movement was consumed. They must not clear accumulated
+                    # fractional trackpad travel or chain to an ancestor.
+                    if abs(residual) < 1e-9:
+                        residual = 0.0
+                    position = round(next_value)
+                    bar.setValue(position)
+                    # Keep fractional trackpad travel between events. Rounding
+                    # each delta independently makes slow or resumed scrolling
+                    # appear frozen on high-resolution macOS trackpads.
+                    self._psx_subpixel_remainder[axis] = (
+                        next_value - float(position) if not residual else 0.0
+                    )
+                    # Only the current gesture's travel may chain to an
+                    # ancestor; fractional carry belongs to this viewport.
+                    if axis == "x":
+                        remaining_x = residual
+                    else:
+                        remaining_y = residual
+            consumed = (dx - remaining_x, dy - remaining_y)
+            if consumed != (0, 0):
+                self._fade.start(750)
+                self._refresh_indicators(active=True)
+            if remaining_x or remaining_y:
+                ancestor = self.parentWidget()
+                while ancestor is not None:
+                    if hasattr(ancestor, "_psx_scroll_delta"):
+                        tail = ancestor._psx_scroll_delta(remaining_x, remaining_y)
+                        remaining_x, remaining_y = tail
+                        break
+                    ancestor = ancestor.parentWidget()
+            return remaining_x, remaining_y
+
         def wheelEvent(self, event):
+            if self._psx_props is None or not self._psx_props["enabled"]:
+                event.ignore()
+                return
+            pixel = event.pixelDelta()
+            angle = event.angleDelta()
+            # Qt positive wheel delta points up/left, opposite to logical
+            # increasing top-left SFLE offsets.
+            dx = -float(pixel.x()) if pixel.x() else -float(angle.x()) * 48 / 120
+            dy = -float(pixel.y()) if pixel.y() else -float(angle.y()) * 48 / 120
+            shift = getattr(getattr(qt, "KeyboardModifier", qt), "ShiftModifier")
+            if event.modifiers() & shift and not dx:
+                dx, dy = dy, 0.0
+            if not (dx or dy):
+                event.ignore()
+                return
+            residual = self._psx_scroll_delta(dx, dy)
+            if residual == (dx, dy):
+                event.ignore()
+            else:
+                event.accept()
+
+        def keyPressEvent(self, event):
+            from psx.layout.scroll.scroll_events import scroll_key_delta
+            from psx.layout.scroll.scroll_offsets import ScrollOffset
             props = self._psx_props
             if props is None or not props["enabled"]:
                 event.ignore()
                 return
-            dx, dy = scroll_axes(props["direction"])
-            delta = event.angleDelta()
-            horizontal = abs(delta.x()) > abs(delta.y())
-            allowed = dx if horizontal else dy
-            bar = self.horizontalScrollBar() if horizontal else self.verticalScrollBar()
-            amount = delta.x() if horizontal else delta.y()
-            can_move = (
-                (amount > 0 and bar.value() > bar.minimum())
-                or (amount < 0 and bar.value() < bar.maximum())
-            )
-            if allowed and can_move:
-                super().wheelEvent(event)
-                self._fade.start(750)
-                self._refresh_indicators(active=True)
+            keys = getattr(qt, "Key", qt)
+            names = {
+                keys.Key_Left: "Left", keys.Key_Right: "Right",
+                keys.Key_Up: "Up", keys.Key_Down: "Down",
+                keys.Key_PageUp: "PageUp", keys.Key_PageDown: "PageDown",
+                keys.Key_Home: "Home", keys.Key_End: "End",
+            }
+            name = names.get(event.key())
+            if name is None:
+                super().keyPressEvent(event)
                 return
-            # Native Qt wheel dispatch will offer an ignored event to an
-            # enclosing scroll area. Avoid consuming at the boundary.
-            event.ignore()
+            horizontal = self.horizontalScrollBar()
+            vertical = self.verticalScrollBar()
+            dx, dy = scroll_key_delta(
+                name, viewport_width=self.viewport().width(),
+                viewport_height=self.viewport().height(),
+                offset=ScrollOffset(horizontal.value(), vertical.value()),
+                maximum_x=horizontal.maximum(), maximum_y=vertical.maximum(),
+            )
+            allow_x, allow_y = scroll_axes(props["direction"])
+            dx = dx if allow_x else 0.0
+            dy = dy if allow_y else 0.0
+            before = horizontal.value(), vertical.value()
+            horizontal.setValue(before[0] + round(dx))
+            vertical.setValue(before[1] + round(dy))
+            if before != (horizontal.value(), vertical.value()):
+                event.accept()
+                self._refresh_indicators(active=True)
+            else:
+                event.ignore()
 
         def configure(self, props):
             self._psx_props = props
+            if not props["enabled"]:
+                self._psx_subpixel_remainder = {"x": 0.0, "y": 0.0}
             self.setEnabled(props["enabled"])
-            self.setFixedWidth(round(props["width"])) if props["width"] is not None else self.setMinimumWidth(0)
+            if self._psx_sfle_scroll:
+                self.setMinimumWidth(0)
+                self.setMaximumWidth(16777215)
+            else:
+                self.setFixedWidth(round(props["width"])) if props["width"] is not None else self.setMinimumWidth(0)
             if props["width"] is None:
                 self.setMaximumWidth(16777215)
-            self.setFixedHeight(round(props["height"])) if props["height"] is not None else self.setMinimumHeight(0)
+            if self._psx_sfle_scroll:
+                self.setMinimumHeight(0)
+                self.setMaximumHeight(16777215)
+            else:
+                self.setFixedHeight(round(props["height"])) if props["height"] is not None else self.setMinimumHeight(0)
             if props["height"] is None:
                 self.setMaximumHeight(16777215)
             self._refresh_indicators()
@@ -137,12 +247,25 @@ class QtScrollAdapter:
             cls = self._classes[binding] = _scroll_area_class(binding)
         area = cls()
         content = renderer._widgets.QWidget()
-        layout_type = renderer._hbox if props["content_direction"] == "horizontal" else renderer._vbox
-        layout = layout_type(content)
+        sfle = renderer._sfle_constraints is not None
+        layout = None
+        if not sfle:
+            layout_type = renderer._hbox if props["content_direction"] == "horizontal" else renderer._vbox
+            layout = layout_type(content)
         area.setWidget(content)
+        area._psx_sfle_scroll = sfle
         area._psx_binding = binding
         area._psx_content = content
         area._psx_layout = layout
+        if sfle:
+            from psx.layout.adapters.viewport_scroll_reentry import request_scroll_reentry
+            def on_native_scroll(_value):
+                request_scroll_reentry(
+                    renderer, area,
+                    lambda callback: renderer._qtcore.QTimer.singleShot(0, callback),
+                )
+            area.horizontalScrollBar().valueChanged.connect(on_native_scroll)
+            area.verticalScrollBar().valueChanged.connect(on_native_scroll)
         self._apply(area, props)
         return QtHandle("Scroll", area, layout=layout, props=props)
 
@@ -154,15 +277,17 @@ class QtScrollAdapter:
         ).QBoxLayout, "Direction", importlib.import_module(
             f"{area._psx_binding}.QtWidgets"
         ).QBoxLayout)
-        layout.setDirection(
-            direction_type.LeftToRight if props["content_direction"] == "horizontal"
-            else direction_type.TopToBottom
-        )
-        left, top, right, bottom = scroll_padding(props)
-        layout.setContentsMargins(left, top, right, bottom)
-        layout.setSpacing(props["spacing"])
+        if layout is not None:
+            layout.setDirection(
+                direction_type.LeftToRight if props["content_direction"] == "horizontal"
+                else direction_type.TopToBottom
+            )
+            left, top, right, bottom = scroll_padding(props)
+            layout.setContentsMargins(left, top, right, bottom)
+            layout.setSpacing(props["spacing"])
         area.configure(props)
-        area._psx_content.adjustSize()
+        if not area._psx_sfle_scroll:
+            area._psx_content.adjustSize()
         area._refresh_indicators()
 
     def update(self, renderer, handle, changed, removed):
@@ -172,11 +297,18 @@ class QtScrollAdapter:
         handle.props = props
 
     def insert(self, renderer, parent, child, index):
+        if parent.widget._psx_sfle_scroll:
+            if child.widget.parentWidget() is not parent.widget._psx_content:
+                child.widget.setParent(parent.widget._psx_content)
+            child.widget.show()
+            return True
         parent.layout.insertWidget(index, child.widget)
         parent.widget._psx_content.adjustSize()
         return True
 
     def move(self, renderer, parent, child, index):
+        if parent.widget._psx_sfle_scroll:
+            return True
         parent.layout.removeWidget(child.widget)
         parent.layout.insertWidget(index, child.widget)
         parent.widget._psx_content.adjustSize()
@@ -184,6 +316,9 @@ class QtScrollAdapter:
 
     def remove(self, renderer, parent, child):
         from psx.renderers.qt.pyqt import _release
+        if parent.widget._psx_sfle_scroll:
+            _release(child)
+            return True
         parent.layout.removeWidget(child.widget)
         _release(child)
         parent.widget._psx_content.adjustSize()

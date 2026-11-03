@@ -10,6 +10,11 @@ texture becomes available and re-applied on every update.
 
 from __future__ import annotations
 
+from io import BytesIO
+from pathlib import Path
+
+from kivy.core.image import Image as CoreImage
+
 from kivy.uix.image import Image as KivyImage
 
 from psx.core.contracts import IMAGE_DEFAULTS
@@ -28,16 +33,68 @@ _FIT_MODE = {
 }
 
 
+def _svg_texture(source):
+    """Decode SVG using bundled Rust wheels, without a system Cairo install."""
+    try:
+        import resvg_py
+    except ImportError as exc:
+        raise RendererCapabilityError(
+            "The Kivy SVG renderer is unavailable; reinstall velto-core[kivy]."
+        ) from exc
+    try:
+        png = resvg_py.svg_to_bytes(svg_path=str(source))
+        return CoreImage(BytesIO(png), ext="png").texture
+    except Exception as exc:
+        raise RendererCapabilityError(
+            f"Unable to decode SVG image {source!r}."
+        ) from exc
+
+
+def _apply_image_source(widget, source):
+    if source and Path(source).suffix.lower() == ".svg":
+        # A blank Kivy source prevents its built-in loader from rejecting SVG.
+        texture = _svg_texture(source)
+        widget._psx_svg_texture = texture
+        widget.texture = texture
+    else:
+        widget._psx_svg_texture = None
+        widget.source = source
+
+
+
+class _VeltoKivyImage(KivyImage):
+    """Prevent Kivy's empty-source refresh from deleting a decoded SVG."""
+
+    def texture_update(self, *args):
+        if (getattr(self, "_psx_svg_texture", None) is not None
+                and not self.source):
+            # SVG pixels are supplied by resvg rather than Kivy's file loader.
+            # The standard Image.texture_update would clear the texture here.
+            texture = self._psx_svg_texture
+            if self.texture is not texture:
+                self.texture = texture
+            return
+        return super().texture_update(*args)
+
+
 class KivyImageAdapter:
     def create(self, renderer, node, parent):
         from psx.renderers.kivy.kivy import KivyHandle
         props = image_props({**IMAGE_DEFAULTS, **node.props})
 
-        widget = KivyImage(source=props["source"])
+        widget = _VeltoKivyImage(source="")
+        widget._psx_svg_texture = None
+        _apply_image_source(widget, props["source"])
         widget.fit_mode = _FIT_MODE[props["fit"]]
         widget.size_hint = (None, None)
         widget.disabled = not props["enabled"]
         widget._psx_props = props
+        widget._psx_sfle_image = renderer._sfle_constraints is not None
+        widget._psx_sfle_invalidate = (
+            lambda: renderer.request_sfle_invalidation("resource")
+            if renderer._sfle_mounted_root is not None
+            and not renderer._sfle_in_commit else None
+        )
         widget.bind(texture=KivyImageAdapter._on_texture)
 
         # If the texture is already cached, apply the target size right away.
@@ -49,14 +106,25 @@ class KivyImageAdapter:
     @staticmethod
     def _on_texture(widget, texture):
         if texture is None:
+            # Kivy can flush an empty-source Image texture on a later Clock
+            # tick. Keep the already-decoded SVG available to Cinnamon and
+            # restore it for painting without re-decoding.
+            cached = getattr(widget, "_psx_svg_texture", None)
+            if cached is not None:
+                widget.texture = cached
             return
         props = widget._psx_props
         src_w, src_h = texture.size
         target_w, target_h = compute_target_size(
             src_w, src_h, props["width"], props["height"],
         )
-        widget.size = (target_w, target_h)
+        if not widget._psx_sfle_image:
+            widget.size = (target_w, target_h)
+        # Under SFLE Image paints within the externally committed size.
         widget.fit_mode = _FIT_MODE[props["fit"]]
+        invalidate = getattr(widget, "_psx_sfle_invalidate", None)
+        if widget._psx_sfle_image and callable(invalidate):
+            invalidate()
 
     def update(self, renderer, handle, changed, removed):
         props = updated_image_props(handle.props, changed, removed)
@@ -64,7 +132,7 @@ class KivyImageAdapter:
         widget = handle.widget
         widget._psx_props = props
         if "source" in changed:
-            widget.source = props["source"]
+            _apply_image_source(widget, props["source"])
         widget.fit_mode = _FIT_MODE[props["fit"]]
         widget.disabled = not props["enabled"]
         if widget.texture is not None:
@@ -79,5 +147,13 @@ class KivyImageAdapter:
 
     def destroy(self, renderer, handle):
         widget = handle.widget
+        widget.unbind(texture=KivyImageAdapter._on_texture)
+        widget._psx_sfle_invalidate = None
         if widget.parent is not None:
             widget.parent.remove_widget(widget)
+        # Drop our owner-side references; Kivy's global texture cache is
+        # managed separately by Kivy and is not owned by this Image widget.
+        widget._psx_svg_texture = None
+        widget.source = ""
+        widget._psx_props = None
+        handle.props = {}

@@ -1,0 +1,147 @@
+name: Cinnamon viewport native certification
+on:
+  push:
+    branches: [fixes/psx-issues]
+    paths:
+      - "psx/layout/**"
+      - "psx/renderers/**"
+      - "rust/cinnamon-core/src/**"
+      - "tests/test_grid_viewport*"
+      - "tests/test_grid_geometry_reuse.py"
+      - "tests/test_grid_early_viewport.py"
+      - "tests/test_native_flow_viewport.py"
+      - "tests/test_viewport_scroll_reentry.py"
+      - "tests/test_viewport_resize_priority.py"
+      - "tests/test_width_dependent_intrinsic_measurement.py"
+      - "tests/test_mounted_grid_native_renderers.py"
+      - ".github/workflows/viewport-native-certification.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  # The same feature branch may receive multiple incremental fixes while
+  # platform runners are busy. Certify only the newest commit.
+  group: cinnamon-viewport-native-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  viewport-policy:
+    name: Pure viewport workset, CSS safety and scroll reentry
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Install PSX and pytest
+        run: python -m pip install -e . pytest
+      - name: Verify 500-card workset and three backend native ports
+        run: |
+          python -m pytest -q \
+            tests/test_grid_viewport_workset.py \
+            tests/test_grid_viewport_native_three_backends.py \
+            tests/test_grid_geometry_reuse.py \
+            tests/test_grid_early_viewport.py \
+            tests/test_viewport_scroll_reentry.py \
+            tests/test_viewport_resize_priority.py \
+            tests/test_width_dependent_intrinsic_measurement.py \
+            tests/test_native_flow_viewport.py
+
+  rust-viewport-computation:
+    name: Rust Cinnamon offscreen computation and visible invalidation
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Verify real incremental Rust kernel matches full layout
+        run: |
+          cargo test --manifest-path rust/cinnamon-core/Cargo.toml --lib viewport_priority_reuse_tests
+
+  real-native:
+    name: Actual mounted Grid native viewport / ${{ matrix.backend }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        backend: [qt, tk, kivy]
+    env:
+      PSX_GRID_BACKEND: ${{ matrix.backend }}
+      PSX_QT_BINDING: pyside6
+      QT_QPA_PLATFORM: offscreen
+      KIVY_NO_ARGS: "1"
+      KIVY_NO_CONSOLELOG: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Install native desktop libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            xvfb xauth python3-tk libegl1 libopengl0 \
+            libxkbcommon-x11-0 libxcb-cursor0 libmtdev1 \
+            libsdl2-2.0-0 libsdl2-image-2.0-0 libsdl2-ttf-2.0-0
+          python -m pip install -e '.[pyside6,kivy]' pytest
+      - name: Verify actual Qt/Tk/Kivy sparse commits and viewport reentry
+        run: |
+          xvfb-run -a python -m pytest -q \
+            tests/test_mounted_grid_native_renderers.py \
+            -k "automatic_grid_viewport_sparse_commit_and_resize_reentry or automatic_html_card_flow_deferred_native_resize or scroll_newly_visible_grid_items_receive_native_geometry or scroll_wrapped_grid_item_uses_native_viewport_across_backends or styled_mixed_grid_reuses_accepted_geometry_before_intrinsic_measurement or native_grid_provisional_p2_skips_upstream_flow_solve_then_reenters or direct_grid_accepted_geometry_survives_rollback_scope_and_returns_on_resize"
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Compile actual Cinnamon Rust wheel and enforce Rust backend
+        run: |
+          python -m pip install 'maturin>=1.8,<2'
+          maturin build --release --manifest-path rust/cinnamon-core/Cargo.toml --out wheelhouse
+          python -m pip install --no-deps --find-links wheelhouse 'psx-sfle-native==0.1.0'
+          python -c "from psx.layout.engine.backend import load_layout_engine; assert load_layout_engine().backend_name == 'rust'"
+      - name: Certify viewport native reentry with Cinnamon Rust (no fallback)
+        env:
+          PSX_VIEWPORT_ENGINE: rust
+        run: |
+          xvfb-run -a python -m pytest -q \
+            tests/test_mounted_grid_native_renderers.py \
+            -k "automatic_grid_viewport_sparse_commit_and_resize_reentry or automatic_html_card_flow_deferred_native_resize or scroll_newly_visible_grid_items_receive_native_geometry or scroll_wrapped_grid_item_uses_native_viewport_across_backends or styled_mixed_grid_reuses_accepted_geometry_before_intrinsic_measurement or native_grid_provisional_p2_skips_upstream_flow_solve_then_reenters or direct_grid_accepted_geometry_survives_rollback_scope_and_returns_on_resize"
+      - name: Measure actual native early-cache usage on responsive cards
+        run: |
+          xvfb-run -a python -u benchmarks/native_resize_fps.py \
+            --adapters "${PSX_GRID_BACKEND}" --engine rust --scenario cards \
+            --counts 24 100 500 --cycles 12 --warmup 3 --timeout 10 \
+            --output "benchmark-results/early-grid-${PSX_GRID_BACKEND}"
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          source = Path("benchmark-results") / f"early-grid-{os.environ['PSX_GRID_BACKEND']}"
+          results = json.loads((source / "summary.json").read_text())
+          assert len(results) == 3 and all("error" not in row for row in results)
+          for row in results:
+              assert row["engine"] == "rust"
+              assert row["accepted_grid_geometry_hits"] > 0, (
+                  row["adapter"], row["logical_items"],
+                  "The native resize reused no accepted Grid computations",
+              )
+              assert row["solver_calls"] > 0
+              if row["logical_items"] == 500:
+                  assert row["early_provisional_p2_groups"] > 0, (
+                      row["adapter"], "500-card resize still fully measured every P2 card",
+                  )
+                  assert row["idle_reconciliation_commits"] > 0, (
+                      "Early P2 work was not fully reconciled after resize idle",
+                  )
+              assert row["presentation_fps"] is None
+              print(row["adapter"], row["logical_items"],
+                    "early cache hits:", row["accepted_grid_geometry_hits"],
+                    "upstream P2 skipped:", row["early_provisional_p2_groups"],
+                    "p95 full idle:", round(row["request_to_full_settlement"]["p95_ms"], 2),
+                    "p95 layout:", round(row["event_to_commit"]["p95_ms"], 2),
+                    "ms; solver calls:", row["solver_calls"])
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: early-grid-native-${{ matrix.backend }}
+          path: benchmark-results/
+          if-no-files-found: warn
+

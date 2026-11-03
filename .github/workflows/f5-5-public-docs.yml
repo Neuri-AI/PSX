@@ -1,0 +1,47 @@
+name: F5.5 public documentation validation
+
+on:
+  pull_request:
+    branches: [develop]
+    paths:
+      - "docs/public/**"
+      - "docs/architecture/f5-5-public-editorial-guide.md"
+      - "scripts/docs/validate_public_site.py"
+      - "tests/test_docs_public_site.py"
+      - ".github/workflows/f5-5-public-docs.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  docs-structure:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Validate public docs structure
+        run: |
+          python scripts/docs/validate_public_site.py
+          python -m unittest discover -s tests -p test_docs_public_site.py -v
+
+  mintlify:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: docs/public
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install pinned Mint CLI
+        run: npm install --no-package-lock --no-audit --no-fund
+      - name: Validate Mintlify MDX and config
+        run: npm run validate
+      - name: Validate links and anchors
+        run: npm run links
+      - name: Check content accessibility
+        run: npm run a11y

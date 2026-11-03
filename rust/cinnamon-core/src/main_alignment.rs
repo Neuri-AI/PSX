@@ -1,0 +1,155 @@
+//! F2.2.3 CSS justify-content main-axis distribution for already-sized flex items.
+//! Auto margins must be consumed upstream; this module only computes spacing.
+
+use crate::FlexMathError;
+use crate::layout_unit::LayoutUnit;
+
+fn lu(value:f64)->LayoutUnit { LayoutUnit::from_nearest(value).expect("validated finite length") }
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum JustifyContent {
+    FlexStart, FlexEnd, Center, SpaceBetween, SpaceAround, SpaceEvenly,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct MainAlignment {
+    pub leading_space: f64,
+    pub between_space: f64,
+    pub remaining_free_space: f64,
+}
+
+pub fn resolve_main_alignment(
+    justify: JustifyContent,
+    available_main: f64,
+    outer_sizes: &[f64],
+    gap: f64,
+) -> Result<MainAlignment, FlexMathError> {
+    if !available_main.is_finite() || available_main < 0.0
+        || !gap.is_finite() || gap < 0.0
+        || outer_sizes.iter().any(|size| !size.is_finite())
+    {
+        return Err(FlexMathError::InvalidInput("invalid resolved main alignment input"));
+    }
+    let count = outer_sizes.len();
+    let total=outer_sizes.iter().fold(LayoutUnit::from_raw(0),|a,v|a+lu(*v));
+    // A fixed gutter is rounded to the LayoutUnit grid before repetition.
+    // Multiply widened raw units (not floating-point gap*count) and clamp
+    // to the signed i32 extent. This avoids inf/panic and precision drift.
+    let gutter_raw=(lu(gap).raw() as i128)*(count.saturating_sub(1) as i128);
+    let gap_total=LayoutUnit::from_raw(
+        gutter_raw.clamp(i32::MIN as i128,i32::MAX as i128) as i32
+    );
+    let free = (lu(available_main)-total-gap_total).to_px();
+    if count == 0 {
+        return Ok(MainAlignment {
+            leading_space: 0.0, between_space: gap, remaining_free_space: free,
+        });
+    }
+    let (leading, extra) = match justify {
+        JustifyContent::FlexStart => (0.0, 0.0),
+        JustifyContent::FlexEnd => (free, 0.0),
+        JustifyContent::Center => (free / 2.0, 0.0),
+        JustifyContent::SpaceBetween => (
+            0.0, if count > 1 { free.max(0.0) / (count - 1) as f64 } else { 0.0 },
+        ),
+        JustifyContent::SpaceAround => {
+            if free < 0.0 { (0.0, 0.0) } else {
+                let extra = free / count as f64;
+                (extra / 2.0, extra)
+            }
+        }
+        JustifyContent::SpaceEvenly => {
+            if free < 0.0 { (0.0, 0.0) } else {
+                let extra = free / (count + 1) as f64;
+                (extra, extra)
+            }
+        }
+    };
+    // Chromium 153 floors the fractional leading offset for
+    // space-evenly; distributed internal space is rounded separately.
+    let leading_unit = if justify == JustifyContent::SpaceEvenly && free > 0.0 {
+        LayoutUnit::from_floor(leading).expect("validated leading offset")
+    } else { lu(leading) };
+    Ok(MainAlignment {
+        leading_space: leading_unit.to_px(),
+        between_space: (lu(gap) + lu(extra)).to_px(),
+        remaining_free_space: free,
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn point3_repeated_finite_gaps_saturate_without_float_overflow() {
+        let limit=LayoutUnit::from_raw(i32::MAX).to_px();
+        for count in [3_usize,4,12,128] {
+            for gap in [limit,1e308] {
+                let sizes=vec![0.0;count];
+                let value=resolve_main_alignment(
+                    JustifyContent::FlexStart,0.0,&sizes,gap,
+                ).expect("finite per-gap input must saturate signed LayoutUnits");
+                assert_eq!(value.remaining_free_space,-limit);
+                assert!(value.between_space>=0.0&&value.between_space<=limit);
+            }
+        }
+    }
+
+    #[test]
+    fn point3_fractional_gaps_round_individually_before_multiplication() {
+        for count in [3_usize,4,12,128] {
+            let sizes=vec![0.0;count];
+            let value=resolve_main_alignment(
+                JustifyContent::FlexStart,20.0,&sizes,0.008,
+            ).unwrap();
+            assert_eq!(value.remaining_free_space,20.0-(count-1) as f64/64.0);
+        }
+    }
+
+    #[test]
+    fn positive_free_space_variants() {
+        let sizes = [20.0, 20.0];
+        assert_eq!(resolve_main_alignment(
+            JustifyContent::SpaceBetween, 100.0, &sizes, 10.0
+        ).unwrap().between_space, 60.0);
+        assert_eq!(resolve_main_alignment(
+            JustifyContent::SpaceAround, 100.0, &sizes, 10.0
+        ).unwrap().leading_space, 12.5);
+        let evenly = resolve_main_alignment(
+            JustifyContent::SpaceEvenly, 100.0, &sizes, 10.0
+        ).unwrap();
+        assert_eq!(evenly.leading_space, 16.65625);
+        assert_eq!(evenly.between_space, 26.671875);
+    }
+
+    #[test]
+    fn unsafe_center_preserves_negative_overflow() {
+        let alignment = resolve_main_alignment(
+            JustifyContent::Center, 30.0, &[40.0], 0.0
+        ).unwrap();
+        assert_eq!(alignment.leading_space, -5.0);
+    }
+
+    #[test]
+    fn distribution_modes_fallback_on_overflow() {
+        for variant in [
+            JustifyContent::SpaceBetween,
+            JustifyContent::SpaceAround,
+            JustifyContent::SpaceEvenly,
+        ] {
+            let value = resolve_main_alignment(
+                variant, 30.0, &[40.0], 0.0
+            ).unwrap();
+            assert_eq!(value.leading_space, 0.0);
+        }
+    }
+
+    #[test]
+    fn signed_outer_contributions_are_allowed() {
+        let value = resolve_main_alignment(
+            JustifyContent::FlexEnd, 100.0, &[20.0, -10.0], 10.0
+        ).unwrap();
+        assert_eq!(value.leading_space, 80.0);
+    }
+}

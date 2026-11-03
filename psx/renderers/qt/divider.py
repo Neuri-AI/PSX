@@ -36,6 +36,17 @@ class QtDividerAdapter:
         props = divider_props({**DIVIDER_DEFAULTS, **node.props})
         validate_divider_props(props)
 
+        if renderer._sfle_constraints is not None:
+            widget = (
+                self._make_sfle_labeled(renderer)
+                if node.children else self._frame_class()
+            )
+            widget._psx_sfle_divider = True
+            widget._psx_child_widget = None
+            widget._psx_props = props
+            self._apply_sfle_line(widget, props, renderer._binding_package)
+            return QtHandle("Divider", widget, props=props)
+
         widget = self._frame_class()
         layout = self._layout_h(widget) if props["orientation"] == "horizontal" \
             else self._layout_v(widget)
@@ -62,6 +73,10 @@ class QtDividerAdapter:
         handle.props = props
         binding = renderer._binding_package
         widget = handle.widget
+        if getattr(widget, "_psx_sfle_divider", False):
+            widget._psx_props = props
+            self._apply_sfle_line(widget, props, binding)
+            return
         self._apply_line(widget._psx_line_before, props, binding)
         if widget._psx_line_after is not None:
             self._apply_line(widget._psx_line_after, props, binding)
@@ -81,6 +96,11 @@ class QtDividerAdapter:
 
     def insert(self, renderer, parent, child, index):
         widget = parent.widget
+        if getattr(widget, "_psx_sfle_divider", False):
+            from psx.renderers.qt.flex import QtSFLEFlexAdapter
+            widget._psx_child_widget = child.widget
+            self._apply_sfle_line(widget, parent.props, renderer._binding_package)
+            return QtSFLEFlexAdapter().insert(renderer, parent, child, index)
         target = 1 if widget._psx_line_after is not None else 0
         parent.layout.insertWidget(target, child.widget)
         self._apply_stretch(widget)
@@ -88,6 +108,9 @@ class QtDividerAdapter:
 
     def move(self, renderer, parent, child, index):
         widget = parent.widget
+        if getattr(widget, "_psx_sfle_divider", False):
+            from psx.renderers.qt.flex import QtSFLEFlexAdapter
+            return QtSFLEFlexAdapter().move(renderer, parent, child, index)
         parent.layout.removeWidget(child.widget)
         target = 1 if widget._psx_line_after is not None else 0
         parent.layout.insertWidget(target, child.widget)
@@ -95,6 +118,11 @@ class QtDividerAdapter:
         return True
 
     def remove(self, renderer, parent, child):
+        if getattr(parent.widget, "_psx_sfle_divider", False):
+            from psx.renderers.qt.flex import QtSFLEFlexAdapter
+            parent.widget._psx_child_widget = None
+            parent.widget.update()
+            return QtSFLEFlexAdapter().remove(renderer, parent, child)
         from psx.renderers.qt.pyqt import _release
         parent.layout.removeWidget(child.widget)
         _release(child)
@@ -102,6 +130,61 @@ class QtDividerAdapter:
         return True
 
     # -- helpers ----------------------------------------------------------
+
+    def _make_sfle_labeled(self, renderer):
+        """QFrame skin draws line segments around an SFLE-positioned Text."""
+        import importlib
+        core = importlib.import_module(f"{renderer._binding_package}.QtCore")
+        gui = importlib.import_module(f"{renderer._binding_package}.QtGui")
+        base = self._frame_class
+
+        class SFLELabeledDivider(base):
+            def paintEvent(self, event):
+                props = self._psx_props
+                child = self._psx_child_widget
+                painter = gui.QPainter(self)
+                painter.setPen(gui.QPen(
+                    gui.QColor(props["color"] or "#9CA3AF"),
+                    props["thickness"],
+                ))
+                gap = 8
+                if props["orientation"] == "horizontal":
+                    mid = self.height() / 2.0
+                    left = child.x() - gap if child is not None else self.width()
+                    right = child.x() + child.width() + gap if child is not None else self.width()
+                    if left > 0:
+                        painter.drawLine(core.QPointF(0, mid), core.QPointF(left, mid))
+                    if right < self.width():
+                        painter.drawLine(core.QPointF(right, mid), core.QPointF(self.width(), mid))
+                else:
+                    mid = self.width() / 2.0
+                    top = child.y() - gap if child is not None else self.height()
+                    bottom = child.y() + child.height() + gap if child is not None else self.height()
+                    if top > 0:
+                        painter.drawLine(core.QPointF(mid, 0), core.QPointF(mid, top))
+                    if bottom < self.height():
+                        painter.drawLine(core.QPointF(mid, bottom), core.QPointF(mid, self.height()))
+                painter.end()
+
+        return SFLELabeledDivider()
+
+    @staticmethod
+    def _apply_sfle_line(widget, props, binding):
+        """Use native QFrame painting without QBoxLayout or fixed geometry."""
+        import importlib
+        widgets = importlib.import_module(f"{binding}.QtWidgets")
+        shape = getattr(widgets.QFrame, "Shape", widgets.QFrame)
+        shadow = getattr(widgets.QFrame, "Shadow", widgets.QFrame)
+        widget.setFrameShape(
+            shape.NoFrame if widget._psx_child_widget is not None
+            else shape.HLine if props["orientation"] == "horizontal" else shape.VLine
+        )
+        widget.setFrameShadow(shadow.Plain)
+        widget.setLineWidth(props["thickness"])
+        widget.setStyleSheet(f"color: {props['color']};" if props["color"] else "")
+        widget.update()
+
+
 
     def _make_line(self, renderer, parent_widget, props):
         line = self._frame_class(parent_widget)

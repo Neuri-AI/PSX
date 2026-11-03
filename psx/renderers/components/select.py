@@ -55,7 +55,12 @@ def apply_qt_select(widget: object, props: Mapping[str, object], binding: str) -
         # The placeholder is shown but cannot be selected from the drop-down.
         widget.clear()
         widget.addItem(str(p["placeholder"]), None)
-        widget.model().item(0).setEnabled(False)
+        model = widget.model()
+        # PySide2 on Windows can expose the first QStandardItem directly
+        # rather than its QStandardItemModel.  Both forms implement the
+        # item-enabled contract, but only the model has ``item(0)``.
+        placeholder_item = model.item(0) if hasattr(model, "item") else model
+        placeholder_item.setEnabled(False)
         selected_index = 0
         for index, (label, value) in enumerate(items, start=1):
             widget.addItem(label, value)

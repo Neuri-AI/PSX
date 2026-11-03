@@ -10,12 +10,9 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 sys.path.insert(0, "src")
 
 from PySide6.QtWidgets import QLabel, QPushButton, QWidget
-from pydux import Action, Store
-
-from psx import App, Button, Checkbox, Column, Input, Native, NativeWidget, Ref, Text, create_element, component, native_widget, psx, use_state
+from psx import App, Button, Checkbox, Flex, Input, Native, NativeWidget, Ref, Text, create_element, component, native_widget, psx, use_state
 from psx.core.errors import RendererCapabilityError
 from psx.core.reconcile import Reconciler
-from psx.integrations.pydux import StoreProvider, use_selector
 from psx.renderers.qt.pyside import PySide6Renderer
 from psx.renderers.qt.pyqt import QtHandle
 
@@ -32,10 +29,47 @@ class PySide6RendererTests(unittest.TestCase):
         self.reconciler.unmount()
         self.renderer.application.processEvents()
 
+
+    def _enable_native_sfle(self) -> None:
+        from psx.layout.fallback.engine import PythonLayoutEngine
+        from psx.layout.contracts.model import AvailableSize, LayoutConstraints
+        native = PySide6Renderer(
+            sfle_constraints=LayoutConstraints(
+                AvailableSize(640, True), AvailableSize(480, True)),
+            engine=PythonLayoutEngine(),
+        )
+        self.reconciler = Reconciler(native)
+
+    @staticmethod
+    def _native_geometry_port():
+        from psx.layout.adapters.external_native_geometry_ports import SFLEExternalPort
+        from psx.layout.contracts.model import IntrinsicSizes, Rect
+
+        def measure(widget, limits):
+            return IntrinsicSizes(12, 48, 18, 20, 48, 20)
+
+        def apply(widget, box):
+            widget.setGeometry(round(box.x), round(box.y),
+                               round(box.width), round(box.height))
+
+        def read(widget):
+            frame = widget.geometry()
+            return Rect(frame.x(), frame.y(), frame.width(), frame.height())
+
+        return SFLEExternalPort(measure, apply, read)
+
+    def test_flex_has_explicit_flex_route_without_legacy_qboxlayout_fallback(self) -> None:
+        from psx import Flex
+
+        self.assertIsNotNone(self.renderer.adapters.get("Flex"))
+        with self.assertRaisesRegex(RendererCapabilityError, "Native SFLE SFLE geometry"):
+            self.renderer.create(Flex(Text("A")), None)
+
     def test_counter_update_reuses_qwidgets(self) -> None:
+        self._enable_native_sfle()
         calls: list[str] = []
         root = self.reconciler.render(
-            Column(Text("Count: 1", key="count"), Button("+1", key="increment", on_click=lambda: calls.append("old")))
+            Flex(Text("Count: 1", key="count"), Button("+1", key="increment", on_click=lambda: calls.append("old")), direction="column")
         )
         column = root.handle
         self.assertIsInstance(column, QtHandle)
@@ -49,7 +83,7 @@ class PySide6RendererTests(unittest.TestCase):
         self.assertIsInstance(button, QPushButton)
 
         self.reconciler.render(
-            Column(Text("Count: 2", key="count"), Button("+1", key="increment", on_click=lambda: calls.append("new")))
+            Flex(Text("Count: 2", key="count"), Button("+1", key="increment", on_click=lambda: calls.append("new")), direction="column")
         )
 
         self.assertIs(root.children[0].handle, label_handle)
@@ -75,7 +109,8 @@ class PySide6RendererTests(unittest.TestCase):
         self.assertEqual(len(self.reconciler.root.event_slots), 1)
 
     def test_app_selects_pyside6_lazily(self) -> None:
-        app = App(Column(Text("Hello")), renderer="pyside6")
+        self._enable_native_sfle()
+        app = App(Flex(Text("Hello"), direction="column"), renderer=self.reconciler.renderer)
         handle = app.mount()
         self.assertIsInstance(handle, QtHandle)
         app.unmount()
@@ -127,16 +162,17 @@ class PySide6RendererTests(unittest.TestCase):
         self.assertFalse(isValid(label))
 
     def test_text_inherits_theme_and_returns_to_it_after_color_override(self) -> None:
-        root = self.reconciler.render(Column(Text("theme")))
+        self._enable_native_sfle()
+        root = self.reconciler.render(Flex(Text("theme"), direction="column"))
         shell = root.handle.widget
         label = root.children[0].handle.widget
         shell.setStyleSheet("QLabel { color: #eeeeee; }")
         label.ensurePolished()
         self.assertEqual(label.styleSheet(), "")
         self.assertEqual(label.palette().color(label.foregroundRole()).name(), "#eeeeee")
-        self.reconciler.render(Column(Text("explicit", color="#336699")))
+        self.reconciler.render(Flex(Text("explicit", color="#336699"), direction="column"))
         self.assertEqual(label.palette().color(label.foregroundRole()).name(), "#336699")
-        self.reconciler.render(Column(Text("theme again")))
+        self.reconciler.render(Flex(Text("theme again"), direction="column"))
         self.assertIs(self.reconciler.root.children[0].handle.widget, label)
         self.assertEqual(label.styleSheet(), "")
         self.assertEqual(label.palette().color(label.foregroundRole()).name(), "#eeeeee")
@@ -164,29 +200,8 @@ class PySide6RendererTests(unittest.TestCase):
         self.renderer.application.processEvents()
         self.assertEqual(label.text(), "1")
 
-    def test_worker_pydux_dispatch_is_committed_on_the_qt_event_loop(self) -> None:
-        def reducer(state: int, action: Action) -> int:
-            return state + 1 if action.type == "increment" else state
-
-        store = Store(reducer, 0)
-
-        @component
-        def Counter():
-            return Text(str(use_selector(lambda state: state)))
-
-        root = self.reconciler.render(StoreProvider(store, Counter()))
-        label_handle = root.children[0].children[0].handle
-        self.assertIsInstance(label_handle, QtHandle)
-        label = label_handle.widget
-        self.assertIsInstance(label, QLabel)
-        worker = threading.Thread(target=lambda: store.dispatch(Action("increment")))
-        worker.start()
-        worker.join()
-        self.assertEqual(label.text(), "0")
-        self.renderer.application.processEvents()
-        self.assertEqual(label.text(), "1")
-
     def test_owned_native_widget_has_stable_identity_and_explicit_updates(self) -> None:
+        self._enable_native_sfle()
         updates: list[tuple[str, frozenset[str]]] = []
 
         def update(widget: object, changed: object, removed: frozenset[str]) -> None:
@@ -196,27 +211,28 @@ class PySide6RendererTests(unittest.TestCase):
             updates.append((widget.text(), removed))
 
         native = NativeWidget(
-            renderer="pyside6", factory=QLabel, update=update, name="StatusLabel"
+            renderer="pyside6", factory=QLabel, update=update, name="StatusLabel", sfle_port=self._native_geometry_port()
         )
-        root = self.reconciler.render(Column(native_widget(native, key="status", message="ready")))
+        root = self.reconciler.render(Flex(native_widget(native, key="status", message="ready"), direction="column"))
         handle = root.children[0].handle
         self.assertIsInstance(handle, QtHandle)
         self.assertIsInstance(handle.widget, QLabel)
         self.assertEqual(handle.widget.text(), "ready")
 
-        self.reconciler.render(Column(native_widget(native, key="status", message="updated")))
+        self.reconciler.render(Flex(native_widget(native, key="status", message="updated"), direction="column"))
         self.assertIs(root.children[0].handle, handle)
         self.assertEqual(handle.widget.text(), "updated")
         self.assertEqual(updates, [("ready", frozenset()), ("updated", frozenset())])
 
     def test_borrowed_native_widget_is_not_deleted_and_parent_is_restored(self) -> None:
+        self._enable_native_sfle()
         original_parent = QWidget()
         borrowed = QLabel("borrowed", original_parent)
-        native = NativeWidget(renderer="pyside6", widget=borrowed, ownership="borrowed")
-        self.reconciler.render(Column(native_widget(native, key="borrowed")))
+        native = NativeWidget(renderer="pyside6", widget=borrowed, ownership="borrowed", sfle_port=self._native_geometry_port())
+        self.reconciler.render(Flex(native_widget(native, key="borrowed"), direction="column"))
         self.assertIsNot(borrowed.parentWidget(), original_parent)
 
-        self.reconciler.render(Column())
+        self.reconciler.render(Flex(direction="column"))
         self.assertIs(borrowed.parentWidget(), original_parent)
         self.assertEqual(borrowed.text(), "borrowed")
 
@@ -260,14 +276,15 @@ class PySide6RendererTests(unittest.TestCase):
         self.assertEqual(len(disconnections), 1)
 
     def test_native_factory_can_explicitly_receive_its_psx_parent(self) -> None:
+        self._enable_native_sfle()
         parents: list[object] = []
 
         def factory(parent: object) -> QLabel:
             parents.append(parent)
             return QLabel(parent)  # type: ignore[arg-type]
 
-        native = NativeWidget(renderer="pyside6", factory=factory, takes_parent=True)
-        self.reconciler.render(Column(native_widget(native)))
+        native = NativeWidget(renderer="pyside6", factory=factory, takes_parent=True, sfle_port=self._native_geometry_port())
+        self.reconciler.render(Flex(native_widget(native), direction="column"))
         handle = self.reconciler.root.children[0].handle
         self.assertIsInstance(handle, QtHandle)
         self.assertEqual(parents, [self.reconciler.root.handle.widget])
@@ -284,13 +301,19 @@ class PySide6RendererTests(unittest.TestCase):
         widget.click()
         self.assertEqual(calls, [("old", True), ("new", False)])
 
+    def test_native_facade_default_geometry_port_is_stable(self) -> None:
+        first = Native(QLabel, text="one", key="label")
+        second = Native(QLabel, text="two", key="label")
+        self.assertIs(first.type.sfle_port, second.type.sfle_port)
+        self.assertEqual(first.type, second.type)
+
     def test_native_facade_updates_qt_properties_without_recreating_widget(self) -> None:
-        first = self.reconciler.render(Native(QLabel, props={"text": "one"}, key="label"))
+        first = self.reconciler.render(Native(QLabel, text="one", key="label"))
         handle = first.handle
         self.assertIsInstance(handle, QtHandle)
         self.assertEqual(handle.widget.text(), "one")
 
-        second = self.reconciler.render(Native(QLabel, props={"text": "two"}, key="label"))
+        second = self.reconciler.render(Native(QLabel, text="two", key="label"))
         self.assertIs(second.handle, handle)
         self.assertEqual(handle.widget.text(), "two")
 
@@ -298,7 +321,7 @@ class PySide6RendererTests(unittest.TestCase):
         calls: list[str] = []
         ref = Ref()
         self.reconciler.render(
-            Native(QPushButton, props={"text": "Save"}, signals={"clicked": lambda: calls.append("clicked")}, ref=ref)
+            Native(QPushButton, text="Save", signals={"clicked": lambda: calls.append("clicked")}, ref=ref)
         )
         self.assertIsInstance(ref.current, QPushButton)
         ref.current.click()
@@ -314,3 +337,114 @@ class PySide6RendererTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+def test_pydux_selector_unsubscribes_when_native_component_unmounts():
+    """An external store must not own the PSX tree after native teardown."""
+    import gc
+    import weakref
+    from pydux import StoreProvider, use_selector
+    from psx import Text, component
+    from psx.core.reconcile import Reconciler
+    from psx.renderers.qt.pyside import PySide6Renderer
+
+    class Store:
+        def __init__(self):
+            self.listeners = []
+            self.state = {"count": 1}
+            self.disposed = 0
+            self.inspector = type("Inspector", (), {"stop": lambda owner: setattr(owner, "stops", getattr(owner, "stops", 0) + 1)})()
+
+        def get_state(self):
+            return self.state
+
+        def dispatch(self, action):
+            self.state = action
+            for listener in tuple(self.listeners):
+                listener()
+
+        def select(self, selector, listener, equality_fn=None, fire_immediately=False):
+            def notify():
+                listener(selector(self.state))
+            self.listeners.append(notify)
+            if fire_immediately:
+                notify()
+
+            def unsubscribe():
+                self.disposed += 1
+                self.listeners.remove(notify)
+            return unsubscribe
+
+    renderer = PySide6Renderer(argv=["psx-pydux-lifetime"])
+    reconciler = Reconciler(renderer)
+    store = Store()
+
+    def select_count(state):
+        return state["count"]
+
+    @component
+    def Reader():
+        count = use_selector(select_count)
+        return Text(str(count))
+
+    for iteration in range(12):
+        mounted = reconciler.render(StoreProvider(store, Reader()))
+        assert len(store.listeners) == 1
+        assert mounted.children[0].children[0].handle.widget.text() == str(iteration + 1)
+        # A state change while mounted must reach the native widget normally.
+        store.dispatch({"count": iteration + 2})
+        renderer.application.processEvents()
+        assert mounted.children[0].children[0].handle.widget.text() == str(iteration + 2)
+        reconciler.unmount()
+        renderer.application.processEvents()
+        assert store.listeners == []
+        assert store.disposed == iteration + 1
+        assert store._pydux_psx_inspector_leases == 0
+        assert store.inspector.stops == iteration + 1
+        del mounted
+        gc.collect()
+        assert reconciler.root is None
+
+
+def test_actual_pydux_store_releases_native_component_selector_subscriptions():
+    """Exercise the real Pydux Store, not only a compatible subscription port."""
+    from pydux import StoreProvider, configure_store, create_slice, use_selector
+    from psx import Text, component
+    from psx.core.reconcile import Reconciler
+    from psx.renderers.qt.pyside import PySide6Renderer
+
+    counter = create_slice(
+        name="counter",
+        initial_state={"count": 0},
+        reducers={
+            "increment": lambda state, action: state.update(
+                {"count": state["count"] + 1}
+            ),
+        },
+    )
+    store = configure_store({"counter": counter}, devtools=False)
+    renderer = PySide6Renderer(argv=["psx-real-pydux-lifetime"])
+    reconciler = Reconciler(renderer)
+
+    def select_count(state):
+        return state["counter"]["count"]
+
+    @component
+    def Reader():
+        return Text(str(use_selector(select_count)))
+
+    try:
+        for iteration in range(8):
+            mounted = reconciler.render(StoreProvider(store, Reader()))
+            assert len(store._subscriptions) == 1
+            assert mounted.children[0].children[0].handle.widget.text() == str(iteration)
+            store.dispatch(counter.actions.increment())
+            renderer.application.processEvents()
+            assert mounted.children[0].children[0].handle.widget.text() == str(iteration + 1)
+            reconciler.unmount()
+            renderer.application.processEvents()
+            assert store._subscriptions == []
+        store.dispatch(counter.actions.increment())
+        assert reconciler.root is None
+    finally:
+        reconciler.unmount()

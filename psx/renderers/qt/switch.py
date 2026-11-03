@@ -32,6 +32,8 @@ def _switch_widget_class(binding: str):
             self._label = ""
             self._size_name = "medium"
             self._active_color = "#16A34A"
+            self._psx_sfle_switch = False
+            self._psx_intrinsic_size = (44, 26)
             self._animation = core.QPropertyAnimation(self, b"progress", self)
             self._animation.setDuration(160)
             easing = getattr(getattr(core.QEasingCurve, "Type", core.QEasingCurve), "OutCubic")
@@ -48,11 +50,23 @@ def _switch_widget_class(binding: str):
 
         progress = property_type(float, _get_progress, _set_progress)
 
+        def sizeHint(self):
+            return core.QSize(*self._psx_intrinsic_size)
+
+        def minimumSizeHint(self):
+            return core.QSize(*self._psx_intrinsic_size)
+
         def _sync_dimensions(self):
             width, height = SWITCH_SIZES[self._size_name]
             metrics = self.fontMetrics()
             label_width = metrics.horizontalAdvance(self._label) if self._label else 0
-            self.setFixedSize(width + (10 + label_width if self._label else 0), max(height, metrics.height() + 4))
+            self._psx_intrinsic_size = (
+                width + (10 + label_width if self._label else 0),
+                max(height, metrics.height() + 4),
+            )
+            if not self._psx_sfle_switch:
+                self.setFixedSize(*self._psx_intrinsic_size)
+            self.updateGeometry()
             self.setAccessibleName(self._label)
 
         def _animate_click(self, *_):
@@ -134,6 +148,10 @@ class QtSwitchAdapter:
         if cls is None:
             cls = self._classes[binding] = _switch_widget_class(binding)
         widget = cls()
+        widget._psx_sfle_switch = renderer._sfle_constraints is not None
+        if widget._psx_sfle_switch:
+            widget.setMinimumSize(0, 0)
+            widget.setMaximumSize(16777215, 16777215)
         widget.set_props(props)
         widget._progress = float(props["checked"])
         return QtHandle("Switch", widget, props=props)

@@ -45,3 +45,7 @@ class MarkupSyntaxError(PSXError):
         self.line = line
         self.column = column
         super().__init__(f"{filename}:{line}:{column}: {message}")
+
+
+class RootHostTransitionRequiresRestart(PSXError):
+    """A development edit changes the native application root host type."""

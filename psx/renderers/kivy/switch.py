@@ -74,6 +74,7 @@ class KivySwitchAdapter:
             halign="left", valign="middle",
             size_hint=(None, None),
         )
+        root._psx_sfle_switch = renderer._sfle_constraints is not None
         root._psx_control = track
         root._psx_label = label
         root._psx_props = props
@@ -98,10 +99,12 @@ class KivySwitchAdapter:
         root.spacing = 10 if props["label"] else 0
         label.size = (label_width, max(height, label.texture_size[1]))
         label.opacity = 1 if props["label"] else 0
-        root.size = (
+        root._psx_intrinsic_size = (
             width + (label_width + 10 if props["label"] else 0),
             max(height, label.height),
         )
+        if not root._psx_sfle_switch:
+            root.size = root._psx_intrinsic_size
         root.disabled = not props["enabled"]
         Animation.cancel_all(track, "progress")
         target = float(props["checked"])

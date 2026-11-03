@@ -1,0 +1,145 @@
+"""Profile mounted native Grid resize with both Cinnamon engines.
+
+Run after installing the repo and a Qt binding:
+    QT_QPA_PLATFORM=offscreen xvfb-run -a python benchmarks/grid_resize_profile.py --engine both --adapter both
+
+The timings include native widget measurements and geometry commits, not just
+the pure Grid mathematics. Rust must be installed for --engine rust/both.
+"""
+from __future__ import annotations
+
+import argparse
+import cProfile
+import io
+import json
+import statistics
+import time
+import pstats
+
+from psx import Grid, GridItem, Text, Flex, psx
+from psx.core.reconcile import Reconciler
+from psx.renderers.tkinter.tkinter import TkinterRenderer
+from psx.layout.engine.backend import load_layout_engine
+from psx.layout.fallback.engine import PythonLayoutEngine
+from psx.layout.contracts.model import AvailableSize, LayoutConstraints
+
+
+def viewport(width):
+    return LayoutConstraints(
+        AvailableSize(width, True), AvailableSize(650, True)
+    )
+
+
+def cards(count, *, styled=False):
+    if styled:
+        items = "".join(
+            f'<GridItem span="3" key="card-{index}">'
+            '<div style="background: #ffffff; border: 1px solid #dedede; '
+            'border-radius: 8px; padding: 12px">'
+            f'<div>Card {index}</div><div>Value {index * 17}</div></div></GridItem>'
+            for index in range(count)
+        )
+        return psx(f'<div><Grid gap="16px">{items}</Grid></div>')
+    return Grid(
+        *(
+            GridItem(
+                Flex(
+                    Text(f"Card {index}", key="title"),
+                    Text(f"Value {index * 17}", key="value"),
+                    direction="column", gap="8px",
+                ),
+                key=f"card-{index}",
+            )
+            for index in range(count)
+        ),
+        gap="16px",
+    )
+
+
+def measure(engine_name, widths, card_count, warmup, cycles, top, adapter="qt", profile=False):
+    if engine_name == "python":
+        engine = PythonLayoutEngine()
+    else:
+        engine = load_layout_engine()
+    if engine.backend_name != engine_name:
+        raise RuntimeError(
+            f"Requested Cinnamon {engine_name}, got {engine.backend_name}; "
+            "install the Rust extension instead of benchmarking a fallback."
+        )
+    if adapter == "qt":
+        from psx.renderers.qt.pyside import PySide6Renderer
+        renderer = PySide6Renderer(
+            argv=["psx-grid-resize-profile"], sfle_constraints=viewport(widths[0]),
+            engine=engine,
+        )
+    elif adapter == "tk":
+        renderer = TkinterRenderer(
+            sfle_constraints=viewport(widths[0]), engine=engine,
+        )
+    else:
+        raise ValueError("Unknown native renderer for resize profiling.")
+    tree = Reconciler(renderer)
+    profiler = cProfile.Profile()
+    try:
+        root = tree.render(cards(card_count))
+        for idx in range(warmup):
+            renderer.set_sfle_constraints(viewport(widths[idx % len(widths)]))
+            renderer.commit_layout(root)
+        times = []
+        cpu_times = []
+        if profile:
+            profiler.enable()
+        for idx in range(cycles):
+            renderer.set_sfle_constraints(viewport(widths[(idx + 1) % len(widths)]))
+            wall = time.perf_counter_ns()
+            cpu = time.process_time_ns()
+            renderer.commit_layout(root)
+            cpu_times.append((time.process_time_ns() - cpu) / 1e6)
+            times.append((time.perf_counter_ns() - wall) / 1e6)
+        if profile:
+            profiler.disable()
+        stream = io.StringIO()
+        if profile:
+            pstats.Stats(profiler, stream=stream).sort_stats("cumtime").print_stats(top)
+        return dict(
+            engine=engine_name, adapter=adapter, cards=card_count, cycles=cycles, warmup=warmup,
+            widths=widths, mean_wall_ms=statistics.mean(times),
+            p95_wall_ms=sorted(times)[(len(times) * 95 + 99) // 100 - 1],
+            mean_cpu_ms=statistics.mean(cpu_times),
+            p99_wall_ms=sorted(times)[(len(times) * 99 + 99) // 100 - 1],
+            profile=stream.getvalue(),
+        )
+    finally:
+        profiler.disable()
+        tree.unmount()
+        if adapter == "qt":
+            renderer.application.processEvents()
+        else:
+            renderer.close()
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--engine", choices=("python", "rust", "both"), default="both")
+    parser.add_argument("--adapter", choices=("qt", "tk", "both"), default="both")
+    parser.add_argument("--cards", type=int, default=24)
+    parser.add_argument("--cycles", type=int, default=100)
+    parser.add_argument("--warmup", type=int, default=10)
+    parser.add_argument("--top", type=int, default=30)
+    parser.add_argument("--profile", action="store_true",
+                        help="Enable cProfile (adds timing overhead).")
+    args = parser.parse_args()
+    if args.cards < 1 or args.cycles < 1 or args.warmup < 0:
+        parser.error("cards and cycles must be positive, warmup nonnegative")
+    widths = [680, 760, 800, 900, 1000, 1200, 980, 750]
+    engines = ("python", "rust") if args.engine == "both" else (args.engine,)
+    adapters = ("qt", "tk") if args.adapter == "both" else (args.adapter,)
+    print(json.dumps(
+        [measure(engine, widths, args.cards, args.warmup, args.cycles, args.top, adapter,
+                 profile=args.profile)
+         for engine in engines for adapter in adapters], indent=2
+    ))
+
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,218 @@
+
+name: Build and publish Velto Core
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-wheels:
+    name: Build wheel / ${{ matrix.platform }}
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux-x86_64
+            os: ubuntu-24.04
+            interpreter: python3.10
+
+          - platform: linux-aarch64
+            os: ubuntu-24.04-arm
+            interpreter: python3.10
+
+          - platform: windows-x86_64
+            os: windows-2025
+            interpreter: python
+
+          - platform: macos-x86_64
+            os: macos-15-intel
+            interpreter: python3.10
+
+          - platform: macos-aarch64
+            os: macos-15
+            interpreter: python3.10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.10"
+
+      - name: Build native Rust/Python wheel
+        uses: PyO3/maturin-action@v1
+        with:
+          command: build
+          args: >-
+            --release
+            --out dist
+            --interpreter ${{ matrix.interpreter }}
+          manylinux: auto
+
+      - name: Inspect built wheel
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          from zipfile import ZipFile
+
+          wheels = list(Path("dist").glob("*.whl"))
+          assert len(wheels) == 1, wheels
+
+          with ZipFile(wheels[0]) as wheel:
+              files = wheel.namelist()
+
+          assert any(
+              p.startswith("psx/") and p.endswith(".py")
+              for p in files
+          ), "Python package missing"
+
+          assert any(
+              "_sfle_native" in p
+              and p.endswith((".so", ".pyd"))
+              for p in files
+          ), "Compiled Rust extension missing"
+
+          assert "none-any.whl" not in wheels[0].name
+
+          print("Validated:", wheels[0].name)
+          PY
+
+      - name: Upload wheel
+        uses: actions/upload-artifact@v4
+        with:
+          name: wheel-${{ matrix.platform }}
+          path: dist/*.whl
+          if-no-files-found: error
+          retention-days: 14
+
+  python-compatibility:
+    name: Python ${{ matrix.python-version }} / ${{ matrix.platform }}
+    needs: build-wheels
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version:
+          - "3.10"
+          - "3.11"
+          - "3.12"
+          - "3.13"
+          - "3.14"
+
+        platform:
+          - linux-x86_64
+          - linux-aarch64
+          - windows-x86_64
+          - macos-x86_64
+          - macos-aarch64
+
+        include:
+          - platform: linux-x86_64
+            os: ubuntu-24.04
+
+          - platform: linux-aarch64
+            os: ubuntu-24.04-arm
+
+          - platform: windows-x86_64
+            os: windows-2025
+
+          - platform: macos-x86_64
+            os: macos-15-intel
+
+          - platform: macos-aarch64
+            os: macos-15
+
+    steps:
+      - uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Download corresponding platform wheel
+        uses: actions/download-artifact@v4
+        with:
+          name: wheel-${{ matrix.platform }}
+          path: dist/
+
+      - name: Install precompiled wheel, never build from source
+        shell: bash
+        run: |
+          python -m pip install \
+            --only-binary=:all: \
+            --no-index \
+            --find-links=dist \
+            velto-core
+
+      - name: Verify installed Python package and real Rust engine
+        shell: bash
+        run: |
+          python -I - <<'PY'
+          import psx
+          import _sfle_native
+          from psx.sfle.backend import load_layout_engine
+
+          assert _sfle_native.schema_version() == 1
+
+          engine = load_layout_engine()
+          assert engine.backend_name == "rust", engine.backend_name
+
+          print("Installed wheel:", psx.__file__)
+          print("Rust extension:", _sfle_native.__file__)
+          print("Backend:", engine.backend_name)
+          PY
+
+  pypi-publish:
+    name: Publish wheels to PyPI
+
+    needs:
+      - build-wheels
+      - python-compatibility
+
+    if: >-
+      github.event_name == 'release' &&
+      github.event.action == 'published'
+
+    runs-on: ubuntu-24.04
+
+    permissions:
+      id-token: write
+
+    environment:
+      name: pypi
+      url: https://pypi.org/project/velto-core/
+
+    steps:
+      - name: Download all wheel artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: wheel-*
+          path: dist/
+          merge-multiple: true
+
+      - name: Verify release artifacts
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          wheels = list(Path("dist").glob("*.whl"))
+          assert len(wheels) == 5, [
+              wheel.name for wheel in wheels
+          ]
+
+          print("Publishing:")
+          for wheel in sorted(wheels):
+              print(wheel.name)
+          PY
+
+      - name: Publish to PyPI with OpenID Connect
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist/

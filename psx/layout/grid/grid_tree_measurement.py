@@ -1,0 +1,139 @@
+"""Bridge normalized Grid identity and native intrinsic receipts into Cinnamon.
+
+The caller supplies already measured MeasuredBox records from the existing
+native measurement ports. This module never measures, creates, or mounts
+widgets, and never invents intrinsic dimensions.
+"""
+from __future__ import annotations
+
+from dataclasses import dataclass
+from collections.abc import Mapping, Sequence
+
+from psx.core.grid_contract import (
+    GRID_BREAKPOINTS, normalize_grid_props, normalize_grid_item_props, resolve_grid_item_props,
+)
+from psx.core.layout_tree import NormalizedLayoutNode
+from psx.core.vnode import NodeKind
+
+from psx.layout.contracts.fixed_point import LayoutUnit
+from psx.layout.grid.contracts import GridConstrainedRect, GridItemConstraints, GridPackingError, GridSlot
+from psx.layout.grid.solver import compute_grid
+from psx.layout.grid.grid_native_plan import GridNativePlacement, plan_grid_native_geometry
+from psx.layout.contracts.lengths import parse_length, LengthKind
+from psx.layout.contracts.model import MeasuredBox
+from psx.layout.projection.native_layout_snapshot import path_identity
+
+
+@dataclass(frozen=True, slots=True)
+class PreparedGridMeasurement:
+    """Pure, immutable native measurement handoff; not a mounted Grid."""
+    grid_id: str
+    generation: int
+    child_ids: tuple[str, ...]
+    measurement_revisions: Sequence[tuple[str, int]]
+    rows: Sequence[Sequence[GridConstrainedRect]]
+    placements: Sequence[GridNativePlacement]
+
+
+def _pixel(value: object, name: str) -> float:
+    try:
+        parsed = parse_length(value)
+    except (TypeError, ValueError) as exc:
+        raise GridPackingError(f"{name} requires a finite pixel length.") from exc
+    if parsed.kind is not LengthKind.PX or parsed.value is None or parsed.value < 0:
+        raise GridPackingError(f"{name} requires a finite nonnegative pixel length.")
+    return LayoutUnit.from_nearest(parsed.value).to_px()
+
+
+def prepare_grid_measurement(
+    grid: NormalizedLayoutNode,
+    *,
+    content_width: float,
+    measurements: Sequence[MeasuredBox],
+    mounted_ids: Sequence[str],
+    generation: int,
+    current_generation: int,
+    constraints: Mapping[str, GridItemConstraints] | None = None,
+    rtl: bool = False,
+    breakpoints: Mapping[str, object] = GRID_BREAKPOINTS,
+    pixel_scale: float = 1.0,
+    engine: object | None = None,
+    structure: object | None = None,
+    structural_heights: Mapping[str, float] | None = None,
+) -> PreparedGridMeasurement:
+    """Resolve responsive Grid items against the Grid content box.
+
+    Requires one native measurement per direct GridItem identity. The native
+    measurement layer owns the supplied preferred heights and revisions;
+    nested child measurement is outside this handoff's scope.
+    """
+    if not isinstance(grid, NormalizedLayoutNode) or grid.kind is not NodeKind.HOST or grid.type != "Grid":
+        raise GridPackingError("Expected a normalized Grid host.")
+    if type(rtl) is not bool:
+        raise GridPackingError("Grid writing direction must be bool.")
+    if isinstance(content_width, bool) or not isinstance(content_width, (int, float)):
+        raise GridPackingError("Grid content width must be a definite numeric value.")
+    from math import isfinite
+    from psx.layout.contracts.fixed_point import I32_MAX
+    if not isfinite(content_width) or content_width < 0 or content_width * 64 > I32_MAX:
+        raise GridPackingError("Grid content width is invalid or unrepresentable.")
+    from math import isfinite
+    if (isinstance(pixel_scale, bool) or not isinstance(pixel_scale, (int, float))
+            or not isfinite(pixel_scale) or pixel_scale <= 0):
+        raise GridPackingError("Grid native pixel scale must be finite and positive.")
+    if structure is not None and structure.grid is not grid:
+        raise GridPackingError("Grid structural receipt belongs to a different tree.")
+    props = structure.props if structure is not None else normalize_grid_props(grid.source.props)
+    children = grid.effective_children if structure is None else ()
+    slots = list(structure.slots) if structure is not None else []
+    ids = list(structure.ids) if structure is not None else []
+    for child in children:
+        if child.kind is not NodeKind.HOST or child.type != "GridItem":
+            raise GridPackingError("Grid requires direct GridItem participants.")
+        if len(child.effective_children) != 1:
+            raise GridPackingError("GridItem requires exactly one effective child.")
+        identifier = path_identity(child.path)
+        values = resolve_grid_item_props(
+            normalize_grid_item_props(child.source.props), content_width / pixel_scale,
+            breakpoints=breakpoints,
+        )
+        slots.append(GridSlot(identifier, values["span"], values["offset"]))
+        ids.append(identifier)
+    if len(set(ids)) != len(ids):
+        raise GridPackingError("Duplicate normalized Grid child identities.")
+    if not isinstance(measurements, (tuple, list)) or any(
+        not isinstance(measurement, MeasuredBox) for measurement in measurements
+    ):
+        raise GridPackingError("Grid requires actual MeasuredBox receipts.")
+    measured = {measurement.node_id: measurement for measurement in measurements}
+    retained = structural_heights or {}
+    if retained and structure is None:
+        raise GridPackingError("Structural heights need a validated Grid structure.")
+    if (len(measured) != len(measurements) or set(measured) & set(retained)
+            or set(measured) | set(retained) != set(ids)):
+        raise GridPackingError("Grid measurements must match direct GridItem identities exactly.")
+    for measurement in measurements:
+        if not measurement.constraints.width.definite:
+            raise GridPackingError("Grid measurement requires a definite width constraint.")
+        if measurement.constraints.width.value is None:
+            raise GridPackingError("Grid measurement width is missing.")
+    limits = {} if constraints is None else dict(constraints)
+    heights = dict(retained)
+    heights.update((item_id, receipt.intrinsic.preferred_height)
+                   for item_id, receipt in measured.items())
+    rows = compute_grid(
+        slots, content_width, _pixel(props["column_gap"], "Grid.column_gap") * pixel_scale,
+        _pixel(props["row_gap"], "Grid.row_gap") * pixel_scale,
+        heights, limits, rtl=rtl, engine=engine,
+    )
+    placements = plan_grid_native_geometry(
+        rows, expected_ids=ids, measured_ids=tuple(heights),
+        mounted_ids=mounted_ids, generation=generation,
+        current_generation=current_generation,
+    )
+    return PreparedGridMeasurement(
+        path_identity(grid.path), generation, tuple(ids),
+        tuple((identifier, measured[identifier].revision if identifier in measured
+               else generation) for identifier in ids),
+        rows, placements,
+    )

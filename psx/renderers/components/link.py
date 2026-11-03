@@ -26,6 +26,9 @@ def updated_link_props(
         )
     merged = {k: v for k, v in current.items() if k not in removed}
     merged.update(changed)
+    # The reconciler owns EventSlots independently of native properties.
+    # A callback removed during Fast Refresh must not survive in handle.props.
+    merged.pop("on_click", None)
     return link_props(merged)
 
 
