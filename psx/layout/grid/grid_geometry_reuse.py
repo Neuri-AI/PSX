@@ -106,6 +106,7 @@ class AcceptedGridGeometryReuse:
         self._entries = OrderedDict()
         self._pending = {}
         self._safety = {}
+        self._early_plans = {}
         self._batch_entries = OrderedDict()
         self._batch_pending = {}
         self._latest = {}
@@ -119,6 +120,7 @@ class AcceptedGridGeometryReuse:
         if normalized is not self._root or scope != self._scope:
             self._entries.clear()
             self._safety.clear()
+            self._early_plans.clear()
             self._batch_entries.clear()
             self._latest.clear()
             self._root = normalized
@@ -160,6 +162,16 @@ class AcceptedGridGeometryReuse:
     def latest(self, grid_id):
         """Most recent *fully solved*, committed composition for this Grid."""
         return self._latest.get(grid_id)
+
+    def early_plan(self, grid_id, normalized, grid):
+        """Run expensive CSS and row proofs only once per mounted tree."""
+        if grid_id not in self._early_plans:
+            from psx.layout.grid.grid_early_viewport import build_early_viewport_plan
+            self._early_plans[grid_id] = (
+                build_early_viewport_plan(normalized, grid)
+                if self.eligible(grid_id, grid) else None
+            )
+        return self._early_plans[grid_id]
 
     def accept(self):
         # Never publish a speculative measurement on a failed UI transaction.
