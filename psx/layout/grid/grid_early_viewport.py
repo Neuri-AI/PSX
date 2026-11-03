@@ -17,6 +17,7 @@ provisional and MUST be fully solved at resize idle or scroll reentry.
 from __future__ import annotations
 
 import re
+from math import isfinite
 
 from psx.core.grid_contract import (
     normalize_grid_props, normalize_grid_item_props,
@@ -34,6 +35,20 @@ _NEGATIVE_MARGIN = re.compile(
 )
 
 
+def _negative(value):
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        return not isfinite(value) or value < 0
+    if getattr(value, "kind", None) is not None:
+        numeric = getattr(value, "value", None)
+        return (isinstance(numeric, (int, float))
+                and (not isfinite(numeric) or numeric < 0))
+    if isinstance(value, str):
+        return value.lstrip().startswith("-")
+    if isinstance(value, (tuple, list)):
+        return any(_negative(item) for item in value)
+    return False
+
+
 def _no_negative_margins(node):
     pending = [node]
     while pending:
@@ -41,7 +56,7 @@ def _no_negative_margins(node):
         source = current.source
         props = getattr(source, "props", {}) or {}
         for name, value in props.items():
-            if "margin" in str(name).lower() and str(value).strip().startswith("-"):
+            if "margin" in str(name).lower() and _negative(value):
                 return False
             if isinstance(value, str) and _NEGATIVE_MARGIN.search(value):
                 return False
@@ -110,9 +125,29 @@ def _plain_root_grid(normalized, grid):
     return subtree_is_safe_for_root_culling(root) and _no_negative_margins(root)
 
 
+def build_early_viewport_plan(normalized, grid):
+    """Pure structural CSS/row proof, cacheable under mounted-tree identity."""
+    if normalized is None or not _plain_root_grid(normalized, grid):
+        return None
+    if (not subtree_is_safe_for_root_culling(grid)
+            or not _no_negative_margins(grid)):
+        return None
+    packing = _uniform_fixed_rows(grid)
+    if packing is None:
+        return None
+    per_row, row_gap = packing
+    safe_ids = tuple(
+        path_identity(item.path)
+        if subtree_is_safe_for_root_culling(item) else None
+        for item in grid.effective_children
+    )
+    return per_row, row_gap, safe_ids
+
+
 def select_pre_measurement_deferred_flows(
     normalized, grid, accepted, workset, *,
     viewport_height, epoch, overscan=96.0,
+    static_plan=None,
 ):
     """Select previously accepted Flow cards proven below even a zero-height grid.
 
@@ -121,28 +156,28 @@ def select_pre_measurement_deferred_flows(
     width-specific solved output. Callers MUST mark them provisional and
     reconcile with full width-dependent measurement at idle.
     """
-    if not _plain_root_grid(normalized, grid):
-        return {}
-    if not subtree_is_safe_for_root_culling(grid) or not _no_negative_margins(grid):
-        return {}
-    packing = _uniform_fixed_rows(grid)
-    if packing is None:
-        return {}
-    if not isinstance(viewport_height, (int, float)) or viewport_height <= 0:
+    if not isinstance(viewport_height, (int, float)) or (
+        not isfinite(viewport_height) or viewport_height <= 0
+    ):
         return {}
     if (accepted is None or accepted.grid.source is not grid.source
             or workset is None):
         return {}
-    per_row, row_gap = packing
+    plan = (static_plan if static_plan is not None
+            else build_early_viewport_plan(normalized, grid))
+    if plan is None:
+        return {}
+    per_row, row_gap, safe_ids = plan
     cutoff = float(viewport_height) + float(overscan)
     selected = {}
-    for index, item in enumerate(grid.effective_children):
+    for index, identifier in enumerate(safe_ids):
         # All real row heights are nonnegative. Even if EVERY previous row
         # collapses to zero at the target width, the row-gap lower bound
         # still proves this item remains below the viewport.
         if (index // per_row) * row_gap < cutoff:
             continue
-        identifier = path_identity(item.path)
+        if identifier is None:
+            continue
         prior = getattr(workset, "_accepted", {}).get(identifier)
         if (prior is None or prior.epoch != epoch
                 or prior.native_y < cutoff):
@@ -150,10 +185,7 @@ def select_pre_measurement_deferred_flows(
         previous_flow = accepted.nested_flow.get(identifier)
         if previous_flow is None:
             continue
-        # A text-only Flow must be free of independent native listeners or
-        # paint escape. A fresh CSS or widget identity changes the shared
-        # normalized tree and drops the accepted cache before this step.
-        if not subtree_is_safe_for_root_culling(item):
-            continue
+        # CSS safety was certified when this immutable tree was mounted.
+        # Semantic epochs / VNode identity changes discard the cached plan.
         selected[identifier] = previous_flow
     return selected
