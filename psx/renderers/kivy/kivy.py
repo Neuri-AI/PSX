@@ -648,7 +648,11 @@ class KivyRenderer:
             self.set_sfle_constraints(LayoutConstraints(
                 AvailableSize(size[0], True), AvailableSize(size[1], True),
             ))
-            self.commit_layout(root)
+            self._psx_in_native_viewport_resize = True
+            try:
+                self.commit_layout(root)
+            finally:
+                self._psx_in_native_viewport_resize = False
             from psx.layout.adapters.viewport_resize_priority import schedule_resize_settlement
             schedule_resize_settlement(self, size, lambda ms, callback: Clock.schedule_once(lambda _dt: callback(), ms / 1000.0))
             self._sfle_resize_error = None
