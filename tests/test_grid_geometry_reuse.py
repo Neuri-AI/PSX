@@ -173,3 +173,16 @@ def test_external_text_ref_is_not_certified_as_immutable_native_geometry():
     cache = AcceptedGridGeometryReuse()
     cache.begin(grid, 1, "qt", 1.0, {})
     assert not cache.eligible(path_identity(grid.path), grid)
+
+def test_last_accepted_grid_compositions_are_bounded_even_for_many_grids():
+    grid = original_grid(4)
+    cache = AcceptedGridGeometryReuse(limit=2)
+    cache.begin(grid, 1, "qt", 1.0, {})
+    composition = calculate(grid)
+    for grid_id in ("first", "second", "third"):
+        cache.stage(grid_id, grid, 480, viewport(), composition)
+        cache.accept()
+    assert len(cache._latest) == 2
+    assert cache.latest("first") is None
+    assert cache.latest("second") is composition
+    assert cache.latest("third") is composition
