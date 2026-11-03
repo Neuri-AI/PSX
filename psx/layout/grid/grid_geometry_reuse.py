@@ -108,7 +108,9 @@ class AcceptedGridGeometryReuse:
         self._safety = {}
         self._batch_entries = OrderedDict()
         self._batch_pending = {}
+        self._latest = {}
         self.batch_hits = 0
+        self.early_provisional_groups = 0
 
     def begin(self, normalized, epoch, backend, pixel_scale, breakpoints):
         # The viewport belongs to the *per-entry* key; retaining other exact
@@ -118,6 +120,7 @@ class AcceptedGridGeometryReuse:
             self._entries.clear()
             self._safety.clear()
             self._batch_entries.clear()
+            self._latest.clear()
             self._root = normalized
             self._scope = scope
         self._pending.clear()
@@ -148,14 +151,22 @@ class AcceptedGridGeometryReuse:
         return _rebind_grid(entry, generation)
 
     def stage(self, grid_id, grid, width, viewport, composition):
-        if self.eligible(grid_id, grid):
+        # A provisional composition contains old offscreen intrinsic values.
+        # It must never become the source of a future accepted exact result.
+        if (self.eligible(grid_id, grid)
+                and not getattr(composition, "provisional_ids", frozenset())):
             self._pending[self._key(grid_id, width, viewport)] = composition
+
+    def latest(self, grid_id):
+        """Most recent *fully solved*, committed composition for this Grid."""
+        return self._latest.get(grid_id)
 
     def accept(self):
         # Never publish a speculative measurement on a failed UI transaction.
         for key, composition in self._pending.items():
             self._entries[key] = composition
             self._entries.move_to_end(key)
+            self._latest[key[0]] = composition
         while len(self._entries) > self.limit:
             self._entries.popitem(last=False)
         self._pending.clear()
