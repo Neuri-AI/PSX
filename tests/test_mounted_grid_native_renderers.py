@@ -3755,3 +3755,48 @@ def test_styled_mixed_grid_reuses_accepted_geometry_before_intrinsic_measurement
         reconciler.unmount()
         close()
 
+
+
+def test_native_grid_provisional_p2_skips_upstream_flow_solve_then_reenters():
+    """Actual Qt/Tk/Kivy widgets: upstream P2 then exact visible reentry."""
+    from psx import psx
+    from psx.layout.contracts.model import AvailableSize, LayoutConstraints
+
+    backend = os.environ["PSX_GRID_BACKEND"]
+    renderer, close = make_renderer(backend)
+    reconciler = Reconciler(renderer)
+    cards = "".join(
+        f'<GridItem span="3" key="card-{i}"><div>'
+        f'<div>Card {i}</div><div>Value {i * 17}</div>'
+        '</div></GridItem>'
+        for i in range(96)
+    )
+    try:
+        root = reconciler.render(psx(f'<div><Grid gap="16px">{cards}</Grid></div>'))
+        # The semantic native resize callback normally owns this flag.
+        # Invoke that exact commit path deterministically, without depending
+        # on a compositor or window-manager throttling on headless CI.
+        renderer.set_sfle_constraints(viewport(560))
+        renderer._psx_in_native_viewport_resize = True
+        try:
+            renderer.commit_layout(root)
+        finally:
+            renderer._psx_in_native_viewport_resize = False
+        cache = getattr(renderer, "_psx_accepted_grid_geometry", None)
+        assert cache is not None
+        assert cache.early_provisional_groups > 0, (
+            "The P2 phase still calculated all 96 offscreen Flow cards"
+        )
+        assert renderer.sfle_result.geometry_commit_error <= 1.0
+        # A newly exposed viewport must ignore all provisional hints and
+        # remeasure/re-solve the formerly deferred content on the UI thread.
+        renderer.set_sfle_constraints(LayoutConstraints(
+            AvailableSize(560, True), AvailableSize(4000, True),
+        ))
+        renderer.commit_layout(root)
+        assert renderer.sfle_result.geometry_commit_error <= 1.0
+        assert renderer._psx_native_grid_deferred_total == 0
+    finally:
+        reconciler.unmount()
+        close()
+
