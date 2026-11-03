@@ -64,6 +64,12 @@ def main() -> None:
             "p95_after_ms": after["p95_ms"],
             "mean_before_ms": before["mean_ms"],
             "mean_after_ms": after["mean_ms"],
+            "full_idle_p95_before_ms": control["request_to_full_settlement"]["p95_ms"],
+            "full_idle_p95_after_ms": optimized["request_to_full_settlement"]["p95_ms"],
+            "full_solver_calls_before": control["full_solver_calls"],
+            "full_solver_calls_after": optimized["full_solver_calls"],
+            "idle_commits_before": control["idle_reconciliation_commits"],
+            "idle_commits_after": optimized["idle_reconciliation_commits"],
             "p95_reduction_pct": (
                 100 * (1 - after["p95_ms"] / before["p95_ms"])
                 if before["p95_ms"] else None
@@ -79,7 +85,9 @@ def main() -> None:
               f"p95 {before['p95_ms']:.2f} -> {after['p95_ms']:.2f} ms; "
               f"solver calls {row['solver_calls_before']} -> "
               f"{row['solver_calls_after']}; "
-              f"cache hits {row['early_cache_hits_after']}", flush=True)
+              f"cache hits {row['early_cache_hits_after']}; "
+              f"full idle p95 {row['full_idle_p95_before_ms']:.2f} -> "
+              f"{row['full_idle_p95_after_ms']:.2f} ms", flush=True)
     (root / "comparison.json").write_text(json.dumps(output, indent=2),
                                            encoding="utf-8")
     with (root / "comparison.csv").open("w", newline="", encoding="utf-8") as file:
