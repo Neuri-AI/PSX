@@ -36,17 +36,24 @@ _NEGATIVE_MARGIN = re.compile(
 
 
 def _negative(value):
+    """True if a margin might be negative under *any* target viewport.
+
+    Unknown expressions and auto margins are not safe proof inputs. The
+    selector is free to miss a culling opportunity, never to guess safety.
+    """
     if isinstance(value, (int, float)) and not isinstance(value, bool):
         return not isfinite(value) or value < 0
-    if getattr(value, "kind", None) is not None:
-        numeric = getattr(value, "value", None)
-        return (isinstance(numeric, (int, float))
-                and (not isfinite(numeric) or numeric < 0))
-    if isinstance(value, str):
-        return value.lstrip().startswith("-")
     if isinstance(value, (tuple, list)):
         return any(_negative(item) for item in value)
-    return False
+    try:
+        length = parse_length(value)
+    except (ValueError, TypeError):
+        return True
+    numeric = getattr(length, "value", None)
+    if (length.kind not in (LengthKind.PX, LengthKind.PERCENT)
+            or not isinstance(numeric, (int, float))):
+        return True
+    return not isfinite(numeric) or numeric < 0
 
 
 def _no_negative_margins(node):
@@ -58,6 +65,14 @@ def _no_negative_margins(node):
         for name, value in props.items():
             if "margin" in str(name).lower() and _negative(value):
                 return False
+            if str(name) == "style" and isinstance(value, str):
+                for declaration in value.split(";"):
+                    if ":" not in declaration:
+                        continue
+                    property_name, specified = declaration.split(":", 1)
+                    if "margin" in property_name.strip().lower():
+                        if any(_negative(token) for token in specified.split()):
+                            return False
             if isinstance(value, str) and _NEGATIVE_MARGIN.search(value):
                 return False
         css = getattr(getattr(source, "css_computed", None), "properties", None)
