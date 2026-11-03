@@ -20,7 +20,10 @@ from psx.markup.html_aliases import FORMATTING_TAGS
 from psx.layout.adapters.grid_viewport_workset import subtree_is_safe_for_root_culling
 
 
-_ALLOWED = frozenset(("Grid", "GridItem", "Text", "Flex")) | frozenset(FORMATTING_TAGS)
+# Form labels can respond to focus/semantic state without replacing their
+# authored VNode; fail closed instead of memoizing interactive native paint.
+_ALLOWED = (frozenset(("Grid", "GridItem", "Text", "Flex"))
+            | (frozenset(FORMATTING_TAGS) - {"form", "label"}))
 
 
 def _safe_immutable_grid(grid) -> bool:
