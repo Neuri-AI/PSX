@@ -396,3 +396,84 @@ The dedicated viewport certification workflow compiles a Rust extension and
 exercises real Qt, Tk and Kivy widgets. Its status is independent of any
 preexisting unrelated failures in PSX's broader test matrix. Re-run real
 resize A/B on the same machine before claiming a specific performance gain.
+
+
+## Pre-measurement Grid P2 and exact viewport reuse (November 2026)
+
+The native workset alone was too late: a 500-card Grid still measured native
+text, ran sub-Flow Cinnamon computations, and flattened all child rectangles
+before dropping offscreen widget setters. The early path now moves a narrowly
+certified subset of the P2 decision **before** those computations.
+
+- **P0:** all visible/newly visible cards get fresh native width measurement,
+  a Cinnamon solve and a live native geometry commit.
+- **P1:** all cards whose size or position can affect visible structure remain
+  fully measured and solved. The current conservative selector requires
+  a fixed-span, zero-offset uniform Grid, nonnegative row gaps, and a plain
+  root (or sole unstyled block wrapper). It leaves every uncertain or unsafe
+  subtree in the structural prefix. It never guesses row height.
+- **P2:** only complete trailing Grid rows whose *zero-height lower bound*
+  from previous row gaps is below the clipped viewport and overscan **and**
+  whose last accepted native position is already below that cutoff may skip
+  fresh Flow measurements and sub-Flow solver calls during the native resize
+  gesture. A previous accepted Flow provides a **provisional height**, not a
+  newly certified current-width result. Those Flow children must not receive
+  native geometry setters while provisional. If the final current-viewport
+  preflight would make one visible, the renderer aborts the provisional
+  transaction before mutation and retries one complete Cinnamon layout.
+- **Finalization:** after 125ms of resize idle, the normal UI-thread
+  coordinator reconciles at most 64 deferred groups per batch. It rejects
+  obsolete generations and disposed/replaced native roots. A new intrinsic
+  invalidation clears receipts. Previously solved exact viewport geometry is
+  reused before leaf measurements and solver calls; flattened geometry
+  receipts may likewise be reused but are rebound to the current mounted
+  widget identities.
+- **Teardown:** cache entries retain no native handles, are published only
+  after successful native readback and viewport acceptance, and are released
+  on renderer unmount. Qt, Tkinter and Kivy retain the same safety fences.
+
+**Scope limitation:** this does not yet prove generalized O(visible) layout
+for arbitrary Flex trees, scrollers, variable-span/offset Grids, transforms,
+overlays, or CSS whose measurements can change independently of a mounted
+immutable VNode. Those cases deliberately use the complete existing layout
+pipeline; scrolling and newly visible elements still re-enter the live
+solver. The provisional tail can temporarily retain an older offscreen
+total content height until idle reconciliation; this is not an exact
+up-to-date scroll extent and is forbidden beneath a native Scroll owner.
+
+### Reproducible native A/B
+
+The two benchmark scripts now share one implementation and run each
+Qt/Kivy/Tk cell in an isolated subprocess:
+
+```bash
+poetry run python benchmarks/native_resize_fps.py \
+  --adapters qt kivy tk --engine rust --scenario cards \
+  --counts 6 12 24 48 100 250 500 --cycles 40 --warmup 5 \
+  --timeout 10 --output benchmark-results/viewport-optimization-after
+
+poetry run python benchmarks/native_resize_fps_viewport.py \
+  --adapters qt kivy tk --engine rust --scenario cards \
+  --counts 6 12 24 48 100 250 500 --cycles 40 --warmup 5 \
+  --timeout 10 --output benchmark-results/viewport-optimization-ab
+```
+
+The A/B's `before` phase disables the new accepted exact Grid geometry
+cache and the native P2 workset; `after` enables both. Pre-existing Rust
+incremental layout and immutable text caches remain enabled in *both*
+phases. This is an **optimization-switch control**, not two historical
+Git commits.
+
+`event_to_commit` is urgent native resize latency.
+`request_to_full_settlement` includes idle P2 reconciliation and its
+125ms debounce. Per-sample `full_solver_calls`,
+`idle_reconciliation_commits` and `early_provisional_p2_groups` distinguish
+work truly eliminated from work postponed. `layout_hz` is neither a GPU
+presentation rate nor measured compositor FPS; the script deliberately
+reports `presentation_fps: null`.
+
+A successful pure 500-card measurement reduction verifies that more than
+half of native leaf-width probes have been avoided in the certified sparse
+case; it does **not** by itself certify a 60 FPS UI. Real performance still
+requires valid Qt/Kivy/Tk native CI, the full benchmark artifacts, and
+comparison on the target Mac/Retina hardware.
