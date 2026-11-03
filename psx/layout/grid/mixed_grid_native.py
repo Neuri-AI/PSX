@@ -67,6 +67,22 @@ class MountedMixedGrid:
             renderer._psx_grid_flow_blueprints = flow_reuse
         self._flow_reuse = flow_reuse
         flow_reuse.solved.begin(generation, self._intrinsic_epoch)
+        # Reuse certified *whole Grid compositions* before native intrinsic
+        # measurement, recursive Flow solves or placement generation. The
+        # mounted structural projection already proves VNode/CSS/handle
+        # identity, and the semantic epoch fences native font measurements.
+        from psx.layout.grid.grid_geometry_reuse import AcceptedGridGeometryReuse
+        geometry_reuse = getattr(renderer, "_psx_accepted_grid_geometry", None)
+        if geometry_reuse is None:
+            geometry_reuse = AcceptedGridGeometryReuse()
+            renderer._psx_accepted_grid_geometry = geometry_reuse
+        self._geometry_reuse = geometry_reuse
+        self._geometry_reuse.begin(
+            normalized, self._intrinsic_epoch, backend.value,
+            getattr(renderer, "_psx_css_pixel_scale", 1.0)
+                if backend is GridCommitBackend.KIVY else 1.0,
+            self.breakpoints,
+        )
 
         def visit(node, clip_safe=True, scroll_ancestor=None):
             # Transforms/fixed positioning can escape a native Scroll clip.
@@ -106,6 +122,13 @@ class MountedMixedGrid:
         if key in self._composition_cache:
             return self._composition_cache[key]
         grid = self.grids[node_id]
+        accepted = self._geometry_reuse.lookup(
+            node_id, grid, width, self.renderer._sfle_constraints,
+            self.generation,
+        )
+        if accepted is not None:
+            self._composition_cache[key] = accepted
+            return accepted
         # The native baseline is shared by all width probes in this one
         # transaction, including re-entrant nested Grid compositions.
         if self.backend is GridCommitBackend.TK and not getattr(self, "_tk_idle_synced", False):
@@ -168,6 +191,9 @@ class MountedMixedGrid:
         )
         # Never publish a partial result after a measurement exception.
         self._composition_cache[key] = composition
+        self._geometry_reuse.stage(
+            node_id, grid, width, self.renderer._sfle_constraints, composition,
+        )
         return composition
 
     def accept_intrinsic(self):
@@ -180,6 +206,10 @@ class MountedMixedGrid:
 
     def accept_solved(self):
         self._flow_reuse.solved.accept(self.generation, self._intrinsic_epoch)
+        if self.renderer._sfle_measurement_invalidations.epoch == self._intrinsic_epoch:
+            self._geometry_reuse.accept()
+        else:
+            self._geometry_reuse.discard()
 
     def intrinsic(self, node_id, width):
         measured = self.compose(node_id, width)
