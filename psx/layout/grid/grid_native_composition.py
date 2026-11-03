@@ -475,6 +475,9 @@ class ComposedGrid:
     nested_flow: dict[str, ComposedFlow]
     nested_scroll: dict[str, tuple[ComposedFlow, float, float, float]]
     content_height: float
+    # One or more offscreen Flow heights came from an older accepted
+    # width. This result is temporary, not eligible for exact caching.
+    provisional_ids: frozenset[str] = frozenset()
 
 
 def prepare_composed_grid(
@@ -492,6 +495,7 @@ def prepare_composed_grid(
     invalidation_epoch: int = 0,
     pixel_scale: float = 1.0,
     kivy_text_basis: bool = False,
+    deferred_flows: Mapping[str, ComposedFlow] | None = None,
 ) -> ComposedGrid:
     """Measure nested Grid children bottom-up using parent-allocated widths.
 
@@ -531,6 +535,16 @@ def prepare_composed_grid(
 
         def measure_width(self, identifier, width):
             child = child_by_id[identifier]
+            if deferred_flows is not None and identifier in deferred_flows:
+                # P2 was proven invisible even under a zero-height lower
+                # bound. Reusing the last native-certified Flow here avoids
+                # expensive native width probes and the Rust subtree solve.
+                # This height is deliberately NOT a current-width receipt.
+                from psx.layout.grid.grid_geometry_reuse import _rebind_flow
+                flow = _rebind_flow(deferred_flows[identifier], generation)
+                nested_flow[identifier] = flow
+                height = flow.content_height
+                return IntrinsicSizes(0, width, 0, height, width, height)
             if child.kind is NodeKind.HOST and child.type == "Scroll":
                 if engine is None:
                     raise GridPackingError("Scroll-in-Grid requires Cinnamon layout.")
@@ -686,7 +700,10 @@ def prepare_composed_grid(
     )
     height = max((placement.y + placement.height for placement in prepared.placements),
                  default=0.0)
-    return ComposedGrid(grid, prepared, nested, nested_flex, nested_flow, nested_scroll, height)
+    return ComposedGrid(
+        grid, prepared, nested, nested_flex, nested_flow, nested_scroll,
+        height, frozenset(deferred_flows or ()),
+    )
 
 
 def compose_geometry_batch(
