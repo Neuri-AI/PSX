@@ -176,23 +176,30 @@ def select_pre_measurement_deferred_flows(
         return {}
     per_row, row_gap, safe_ids = plan
     cutoff = float(viewport_height) + float(overscan)
-    selected = {}
+    # Only a contiguous *tail of complete Grid rows* can be provisional.
+    # Otherwise one structurally dependent later row could receive a Y based
+    # on stale heights of an earlier P2 row, rather than true Cinnamon data.
+    # All P0/P1 groups, including structurally unsafe cards, remain before
+    # the first deferred row.
+    proven = []
+    receipts = getattr(workset, "_accepted", {})
     for index, identifier in enumerate(safe_ids):
-        # All real row heights are nonnegative. Even if EVERY previous row
-        # collapses to zero at the target width, the row-gap lower bound
-        # still proves this item remains below the viewport.
-        if (index // per_row) * row_gap < cutoff:
+        # Even zero-height earlier rows retain this minimum Y via row gaps.
+        if ((index // per_row) * row_gap < cutoff or identifier is None):
+            proven.append(False)
             continue
-        if identifier is None:
-            continue
-        prior = getattr(workset, "_accepted", {}).get(identifier)
-        if (prior is None or prior.epoch != epoch
-                or prior.native_y < cutoff):
-            continue
-        previous_flow = accepted.nested_flow.get(identifier)
-        if previous_flow is None:
-            continue
-        # CSS safety was certified when this immutable tree was mounted.
-        # Semantic epochs / VNode identity changes discard the cached plan.
-        selected[identifier] = previous_flow
-    return selected
+        prior = receipts.get(identifier)
+        proven.append(bool(
+            prior is not None and prior.epoch == epoch
+            and prior.native_y >= cutoff
+            and identifier in accepted.nested_flow
+        ))
+    last_structural = max(
+        (index for index, ok in enumerate(proven) if not ok), default=-1,
+    )
+    first_row = (last_structural // per_row + 1) * per_row
+    return {
+        safe_ids[index]: accepted.nested_flow[safe_ids[index]]
+        for index in range(first_row, len(safe_ids))
+        if proven[index]
+    }
