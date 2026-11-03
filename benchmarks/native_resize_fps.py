@@ -284,6 +284,14 @@ def run_cell(args):
                 getattr(renderer, "_psx_accepted_grid_geometry", None),
                 "misses", 0,
             ),
+            "accepted_grid_batch_hits": getattr(
+                getattr(renderer, "_psx_accepted_grid_geometry", None),
+                "batch_hits", 0,
+            ),
+            "early_provisional_p2_groups": getattr(
+                getattr(renderer, "_psx_accepted_grid_geometry", None),
+                "early_provisional_groups", 0,
+            ),
             "warmup": args.warmup, "event_to_commit": stats(latencies),
             "request_to_settled": stats(end_to_end),
             "solver_total_ms": sum(s["solver_ms"] for s in samples),
