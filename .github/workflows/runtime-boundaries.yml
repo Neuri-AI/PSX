@@ -34,16 +34,33 @@ jobs:
       - name: Enforce certification ownership
         run: python scripts/check_runtime_boundaries.py
       - name: Compile relocated certification modules
-        run: python -m compileall -q tests/certification psx/sfle/native_external_ownership_cases.py psx/sfle/native_external_ownership_receipts.py psx/sfle/native_operation_contracts.py psx/sfle/native_operation_evidence.py psx/sfle/native_component_matrix.py psx/sfle/native_operation_oracles.py psx/sfle/native_operation_receipts.py
-      - name: Verify canonical imports and compatibility
+        run: python -m compileall -q tests/certification
+      - name: Verify canonical imports and runtime isolation
         run: |
           python -m pip install -e .
           python - <<'PY'
           import importlib
-          for name in ("native_external_ownership_cases", "native_external_ownership_receipts", "native_operation_contracts", "native_operation_evidence", "native_component_matrix", "native_operation_oracles", "native_operation_receipts"):
-              old = importlib.import_module(f"psx.sfle.{name}")
-              new = importlib.import_module(f"tests.certification.{name}")
-              for attr in dir(new):
-                  if not attr.startswith("_") and hasattr(old, attr):
-                      assert getattr(old, attr) is getattr(new, attr), (name, attr)
+          from pathlib import Path
+
+          import psx
+
+          assert not (Path(psx.__file__).parent / "sfle").exists(), (
+              "Certification-only psx.sfle package must not be shipped in the runtime"
+          )
+          names = (
+              "native_external_ownership_cases",
+              "native_external_ownership_receipts",
+              "native_operation_contracts",
+              "native_operation_evidence",
+              "native_component_matrix",
+              "native_operation_oracles",
+              "native_operation_receipts",
+          )
+          for name in names:
+              module = importlib.import_module(f"tests.certification.{name}")
+              assert module.__file__ is not None
+              assert Path(module.__file__).resolve().is_relative_to(
+                  Path("tests/certification").resolve()
+              ), (name, module.__file__)
+          print("Canonical certification imports and runtime isolation verified.")
           PY
