@@ -161,3 +161,34 @@ def test_pending_settlement_must_not_commit_a_replaced_mounted_root():
     scheduled.pop()()
     assert renderer.calls == 0
     assert not renderer._psx_resize_priority.settling
+
+def test_later_resize_clears_obsolete_failed_settlement_and_fences_callback():
+    from types import SimpleNamespace
+    from psx.layout.adapters.viewport_resize_priority import schedule_resize_settlement
+
+    class Renderer:
+        _sfle_in_commit = False
+
+        def __init__(self):
+            self._sfle_mounted_root = SimpleNamespace(disposed=False)
+            self._psx_native_flow_deferred_ids = frozenset({"card"})
+            self._psx_native_grid_deferred_total = 0
+            self._psx_resize_settle_error = RuntimeError("stale failure")
+            self.calls = 0
+
+        def commit_layout(self, root):
+            self.calls += 1
+
+    renderer = Renderer()
+    callbacks = []
+    schedule = lambda _ms, cb: callbacks.append(cb)
+    schedule_resize_settlement(renderer, (800, 600), schedule)
+    assert renderer._psx_resize_settle_error is None
+    renderer._psx_resize_settle_error = RuntimeError("failed prior batch")
+    schedule_resize_settlement(renderer, (900, 600), schedule)
+    assert renderer._psx_resize_settle_error is None
+    callbacks[0]()
+    assert renderer.calls == 0  # stale generation cannot commit
+    callbacks[1]()
+    assert renderer.calls == 1
+    assert renderer._psx_resize_settle_error is None
