@@ -121,7 +121,7 @@ class AcceptedGridGeometryReuse:
         self._early_plans = {}
         self._batch_entries = OrderedDict()
         self._batch_pending = {}
-        self._latest = {}
+        self._latest = OrderedDict()
         self.batch_hits = 0
         self.early_provisional_groups = 0
 
@@ -203,6 +203,9 @@ class AcceptedGridGeometryReuse:
             self._entries[key] = composition
             self._entries.move_to_end(key)
             self._latest[key[0]] = composition
+            self._latest.move_to_end(key[0])
+        while len(self._latest) > self.limit:
+            self._latest.popitem(last=False)
         while len(self._entries) > self.limit:
             self._entries.popitem(last=False)
         self._pending.clear()
