@@ -60,7 +60,7 @@ jobs:
         run: maturin build --release --manifest-path rust/cinnamon-core/Cargo.toml --out wheelhouse
       - name: Install and inspect native wheel
         run: |
-          python -m pip install --no-deps --find-links wheelhouse "psx-sfle-native==0.1.0"
+          python -m pip install --no-deps --find-links wheelhouse "velto-cinnamon-core==0.1.0"
           python -c "import _sfle_native as native; assert native.schema_version()==1; print('SFLE_NATIVE_LIBRARY',native.__file__)"
       - name: Verify ABI, native primary and exact accepted corpus against Python
         run: python -m pytest -q tests/interop/test_sfle_native_wheel.py
@@ -74,7 +74,7 @@ jobs:
           "./dist-native/sfle-native-probe${EXT}" rust
       - name: Remove installed native wheel; assert load-time Python fallback
         run: |
-          python -m pip uninstall -y psx-sfle-native
+          python -m pip uninstall -y velto-cinnamon-core
           python -c "import importlib.util; assert importlib.util.find_spec('_sfle_native') is None"
           python -c "from psx.layout.engine.backend import load_layout_engine; assert load_layout_engine().backend_name=='python'"
       - name: Source install with Rust compiler explicitly disabled uses Python fallback
