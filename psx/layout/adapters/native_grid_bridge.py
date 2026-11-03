@@ -110,13 +110,45 @@ def commit_native_grid(renderer: object, root: object, *, backend: GridCommitBac
             child.effective_children and child.effective_children[0].type in ("Grid", "Flex", "Scroll")
             for child in grid.effective_children
         )
+        # Look up exact previously committed geometry *before* any native
+        # intrinsic measurements, recursive Cinnamon composition or Grid
+        # width allocation. This path never retains stale native handles:
+        # the current mounted tree always supplies the commit bindings.
+        from types import SimpleNamespace
+        from psx.layout.grid.grid_geometry_reuse import AcceptedGridGeometryReuse
+        from psx.layout.grid.grid_native_composition import (
+            ComposedGrid, compose_geometry_batch,
+        )
+        geometry_cache = getattr(renderer, "_psx_accepted_grid_geometry", None)
+        if geometry_cache is None:
+            geometry_cache = AcceptedGridGeometryReuse()
+            renderer._psx_accepted_grid_geometry = geometry_cache
+        geometry_cache.begin(
+            normalized, invalidation_epoch, backend.value,
+            getattr(renderer, "_psx_css_pixel_scale", 1.0)
+                if backend is GridCommitBackend.KIVY else 1.0,
+            getattr(renderer, "_grid_breakpoints", GRID_BREAKPOINTS),
+        )
+        grid_id = path_identity(grid.path)
+        reused = geometry_cache.lookup(
+            grid_id, grid, float(width), renderer._sfle_constraints,
+            generation,
+        )
         composed_heights = None
-        if nested_content:
+        if reused is not None:
+            prepared = reused.prepared
+            batch, commit_widgets, composed_heights = compose_geometry_batch(
+                reused, handles={identity: handle.widget
+                                 for identity, handle in handles.items()},
+                root_height=float(height),
+            )
+            source = SimpleNamespace(
+                is_ui_thread=lambda: get_ident() == renderer._sfle_owner_thread,
+            )
+        elif nested_content:
             # Each nested Grid resolves spans at its own Cinnamon-allocated
             # content width; native sources measure only terminal widgets.
-            from psx.layout.grid.grid_native_composition import (
-                prepare_composed_grid, compose_geometry_batch,
-            )
+            from psx.layout.grid.grid_native_composition import prepare_composed_grid
             if backend is GridCommitBackend.TK:
                 renderer.root.update_idletasks()
 
@@ -230,6 +262,17 @@ def commit_native_grid(renderer: object, root: object, *, backend: GridCommitBac
                     placement.used_width, placement.used_height, False, False,
                 ))
                 commit_widgets[leaf_id] = leaf_handles[placement.node_id].widget
+        if reused is None:
+            if not nested_content:
+                composed = ComposedGrid(
+                    grid, prepared, {}, {}, {}, {},
+                    max((p.y + p.height for p in prepared.placements),
+                        default=0.0),
+                )
+            geometry_cache.stage(
+                grid_id, grid, float(width), renderer._sfle_constraints,
+                composed,
+            )
         if renderer._sfle_measurement_invalidations.epoch != invalidation_epoch:
             # Native widget creation can synchronously publish an intrinsic
             # invalidation (notably Tk's requested-size update).  Renderers
@@ -371,5 +414,6 @@ def commit_native_grid(renderer: object, root: object, *, backend: GridCommitBac
         renderer._psx_native_grid_deferred_total = len(deferred_ids)
         reuse_transaction.accept(invalidation_epoch)
         flow_reuse.solved.accept(generation, invalidation_epoch)
+        geometry_cache.accept()
     finally:
         renderer._sfle_in_commit = False
