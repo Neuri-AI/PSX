@@ -673,7 +673,20 @@ class QtRenderer:
             ))
             self._psx_in_native_viewport_resize = True
             try:
-                self.commit_layout(root)
+                try:
+                    self.commit_layout(root)
+                except Exception as provisional_error:
+                    # The P2 proof can become invalid between measurement
+                    # and native preflight (e.g. a newly visible card). In
+                    # that case fall back to one full Cinnamon solve before
+                    # applying any stale offscreen geometry.
+                    from psx.layout.grid.contracts import GridPackingError
+                    if (not isinstance(provisional_error, GridPackingError)
+                            or "Provisional offscreen Grid Flow became visible"
+                            not in str(provisional_error)):
+                        raise
+                    self._psx_in_native_viewport_resize = False
+                    self.commit_layout(root)
             finally:
                 self._psx_in_native_viewport_resize = False
             from psx.layout.adapters.viewport_resize_priority import schedule_resize_settlement
