@@ -310,7 +310,7 @@ def commit_native_grid(renderer: object, root: object, *, backend: GridCommitBac
             geometry_cache.batch_stage(
                 grid_id, grid, float(width), renderer._sfle_constraints,
                 float(height), batch, commit_widgets,
-                (composed_heights or {}), handles,
+                composed_heights, handles,
             )
         if renderer._sfle_measurement_invalidations.epoch != invalidation_epoch:
             # Native widget creation can synchronously publish an intrinsic
