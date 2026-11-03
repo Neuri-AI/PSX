@@ -258,6 +258,7 @@ def commit_native_grid(renderer: object, root: object, *, backend: GridCommitBac
             root_ids=root_ids, batch=batch, widgets=commit_widgets,
             viewport_height=float(height), epoch=invalidation_epoch,
             backend=backend, safe_ids=safe_ids,
+            reconcile=getattr(renderer, "_psx_resize_priority", None),
         )
         active_batch = tuple(
             item for item in batch if item.node_id not in deferred_ids
@@ -364,6 +365,10 @@ def commit_native_grid(renderer: object, root: object, *, backend: GridCommitBac
             backend=backend, skipped=deferred_ids,
         )
         renderer.grid_result = (prepared, receipt)
+        # A root Grid uses the same idle P2 reconciliation as a mixed Grid.
+        # Publish this flag only after a successful native readback, so the
+        # resize scheduler does not miss outstanding deferred geometry.
+        renderer._psx_native_grid_deferred_total = len(deferred_ids)
         reuse_transaction.accept(invalidation_epoch)
         flow_reuse.solved.accept(generation, invalidation_epoch)
     finally:
