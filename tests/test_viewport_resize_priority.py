@@ -61,11 +61,18 @@ def test_failed_batch_never_accepts_and_next_resize_restarts():
     workset = object()
     generation = coordinator.resize((800, 600))
     assert coordinator.begin_settlement(generation)
+    # Promotion is transactional; outside an open batch nothing is accepted.
+    assert not coordinator.promote(workset, "a")
+    assert coordinator.begin_batch(generation)
     assert coordinator.promote(workset, "a")
     assert not coordinator.promote(workset, "b")
     assert not coordinator.finish_batch(success=False)
+    assert not coordinator.promote(workset, "a")
+
     generation = coordinator.resize((900, 600))
     assert coordinator.begin_settlement(generation)
+    assert coordinator.begin_batch(generation)
+    # A failed batch cannot permanently suppress the group's next promotion.
     assert coordinator.promote(workset, "a")
     coordinator.cancel()
     assert not coordinator.begin_batch(generation)
