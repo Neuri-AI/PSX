@@ -106,8 +106,11 @@ def commit_native_grid(renderer: object, root: object, *, backend: GridCommitBac
         if (not renderer._sfle_constraints.width.definite or width is None
                 or not renderer._sfle_constraints.height.definite or height is None):
             raise GridPackingError("Grid root requires definite viewport constraints.")
+        from psx.markup.html_aliases import FORMATTING_TAGS
         nested_content = any(
-            child.effective_children and child.effective_children[0].type in ("Grid", "Flex", "Scroll")
+            child.effective_children and child.effective_children[0].type in (
+                "Grid", "Flex", "Scroll", *FORMATTING_TAGS,
+            )
             for child in grid.effective_children
         )
         # Look up exact previously committed geometry *before* any native
@@ -134,6 +137,23 @@ def commit_native_grid(renderer: object, root: object, *, backend: GridCommitBac
             grid_id, grid, float(width), renderer._sfle_constraints,
             generation,
         )
+        # Use the same upstream P2 plan for a directly mounted Grid as for
+        # a Grid nested inside a block/Flex root. The immutable last-accepted
+        # geometry is only a provisional hint, never current-width truth.
+        early_deferred = {}
+        if (reused is None and nested_content
+                and getattr(renderer, "_psx_in_native_viewport_resize", False)):
+            from psx.layout.grid.grid_early_viewport import (
+                select_pre_measurement_deferred_flows,
+            )
+            early_plan = geometry_cache.early_plan(grid_id, normalized, grid)
+            if early_plan is not None:
+                early_deferred = select_pre_measurement_deferred_flows(
+                    normalized, grid, geometry_cache.latest(grid_id),
+                    getattr(renderer, "_psx_grid_viewport_workset", None),
+                    viewport_height=height, epoch=invalidation_epoch,
+                    static_plan=early_plan,
+                )
         composed_heights = None
         if reused is not None:
             prepared = reused.prepared
@@ -197,7 +217,10 @@ def commit_native_grid(renderer: object, root: object, *, backend: GridCommitBac
                 pixel_scale=(getattr(renderer, "_psx_css_pixel_scale", 1.0)
                              if backend is GridCommitBackend.KIVY else 1.0),
                 kivy_text_basis=(backend is GridCommitBackend.KIVY),
+                deferred_flows=early_deferred,
             )
+            if early_deferred:
+                geometry_cache.early_provisional_groups += len(early_deferred)
             prepared = composed.prepared
             batch, commit_widgets, composed_heights = compose_geometry_batch(
                 composed, handles={identity: handle.widget
@@ -276,11 +299,13 @@ def commit_native_grid(renderer: object, root: object, *, backend: GridCommitBac
                     max((p.y + p.height for p in prepared.placements),
                         default=0.0),
                 )
-            geometry_cache.stage(
-                grid_id, grid, float(width), renderer._sfle_constraints,
-                composed,
-            )
-        if reused is None or flattened is None:
+            if not composed.provisional_ids:
+                geometry_cache.stage(
+                    grid_id, grid, float(width), renderer._sfle_constraints,
+                    composed,
+                )
+        if (not composed.provisional_ids
+                and (reused is None or flattened is None)):
             geometry_cache.batch_stage(
                 grid_id, grid, float(width), renderer._sfle_constraints,
                 float(height), batch, commit_widgets,
@@ -316,6 +341,17 @@ def commit_native_grid(renderer: object, root: object, *, backend: GridCommitBac
             backend=backend, safe_ids=safe_ids,
             reconcile=getattr(renderer, "_psx_resize_priority", None),
         )
+        if early_deferred:
+            groups = GridViewportWorkset._groups(root_ids, batch, commit_widgets)
+            for item_id in early_deferred:
+                if (item_id not in groups or not all(
+                        placement.node_id in deferred_ids
+                        for placement in groups[item_id]
+                )):
+                    raise GridPackingError(
+                        "Provisional offscreen Grid Flow became visible "
+                        "before a fully measured layout."
+                    )
         active_batch = tuple(
             item for item in batch if item.node_id not in deferred_ids
         )
