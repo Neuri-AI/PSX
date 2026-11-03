@@ -108,14 +108,14 @@ jobs:
         run: |
           xvfb-run -a python -u benchmarks/native_resize_fps.py \
             --adapters "${PSX_GRID_BACKEND}" --engine rust --scenario cards \
-            --counts 24 100 --cycles 12 --warmup 3 --timeout 10 \
+            --counts 24 100 500 --cycles 12 --warmup 3 --timeout 10 \
             --output "benchmark-results/early-grid-${PSX_GRID_BACKEND}"
           python - <<'PY'
           import json, os
           from pathlib import Path
           source = Path("benchmark-results") / f"early-grid-{os.environ['PSX_GRID_BACKEND']}"
           results = json.loads((source / "summary.json").read_text())
-          assert len(results) == 2 and all("error" not in row for row in results)
+          assert len(results) == 3 and all("error" not in row for row in results)
           for row in results:
               assert row["engine"] == "rust"
               assert row["accepted_grid_geometry_hits"] > 0, (
@@ -123,9 +123,18 @@ jobs:
                   "The native resize reused no accepted Grid computations",
               )
               assert row["solver_calls"] > 0
+              if row["logical_items"] == 500:
+                  assert row["early_provisional_p2_groups"] > 0, (
+                      row["adapter"], "500-card resize still fully measured every P2 card",
+                  )
+                  assert row["idle_reconciliation_commits"] > 0, (
+                      "Early P2 work was not fully reconciled after resize idle",
+                  )
               assert row["presentation_fps"] is None
               print(row["adapter"], row["logical_items"],
                     "early cache hits:", row["accepted_grid_geometry_hits"],
+                    "upstream P2 skipped:", row["early_provisional_p2_groups"],
+                    "p95 full idle:", round(row["request_to_full_settlement"]["p95_ms"], 2),
                     "p95 layout:", round(row["event_to_commit"]["p95_ms"], 2),
                     "ms; solver calls:", row["solver_calls"])
           PY
