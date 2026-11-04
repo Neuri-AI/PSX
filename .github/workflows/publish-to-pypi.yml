@@ -16,25 +16,32 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v6
         with:
-          python-version: '3.10'
+          python-version: '3.11'
       - name: Build universal wheel and sdist
         run: |
-          python -m pip install build
+          python -m pip install --upgrade build
           python -m build --wheel --sdist --outdir dist
-      - name: Validate package
+      - name: Validate Python distribution and dependency
         shell: bash
         run: |
           python - <<'PY'
           from pathlib import Path
           from zipfile import ZipFile
+          from email.parser import Parser
+
           wheels = list(Path('dist').glob('*.whl'))
-          assert len(wheels) == 1, wheels
+          sdists = list(Path('dist').glob('*.tar.gz'))
+          assert len(wheels) == 1 and len(sdists) == 1, (wheels, sdists)
           assert wheels[0].name.endswith('py3-none-any.whl'), wheels[0]
           with ZipFile(wheels[0]) as z:
               names = z.namelist()
-          assert any(p.startswith('psx/') and p.endswith('.py') for p in names)
-          assert not any('_sfle_native' in p for p in names)
-          assert len(list(Path('dist').glob('*.tar.gz'))) == 1
+              assert any(p.startswith('psx/') and p.endswith('.py') for p in names)
+              assert not any('_sfle_native' in p for p in names)
+              metadata_name = next(p for p in names if p.endswith('.dist-info/METADATA'))
+              metadata = Parser().parsestr(z.read(metadata_name).decode())
+          requirements = metadata.get_all('Requires-Dist', [])
+          assert any('velto-cinnamon-core' in requirement.lower() for requirement in requirements), requirements
+          print('Validated:', wheels[0].name, 'requirements:', requirements)
           PY
       - uses: actions/upload-artifact@v4
         with:
@@ -83,6 +90,7 @@ jobs:
           with ZipFile(wheels[0]) as z:
               names = z.namelist()
           assert any('_sfle_native' in p and p.endswith(('.so', '.pyd')) for p in names)
+          print('Validated:', wheels[0].name)
           PY
       - uses: actions/upload-artifact@v4
         with:
@@ -98,6 +106,7 @@ jobs:
       fail-fast: false
       matrix:
         python: ['3.10', '3.11', '3.12', '3.13', '3.14']
+        platform: [linux-x86_64, linux-aarch64, windows-x86_64, macos-x86_64, macos-aarch64]
         include:
           - {platform: linux-x86_64, os: ubuntu-24.04}
           - {platform: linux-aarch64, os: ubuntu-24.04-arm}
@@ -116,33 +125,33 @@ jobs:
         with:
           name: cinnamon-${{ matrix.platform }}
           path: dist/
-      - name: Install wheels (no source builds)
+      - name: Install wheels without source builds
         shell: bash
         run: |
           python -m pip install --only-binary=:all: --find-links=dist velto-core
-      - name: Validate native module
+      - name: Validate installed packages and native module
         shell: bash
         run: |
           python -I - <<'PY'
+          import importlib.metadata as metadata
           import psx
           import _sfle_native
           assert _sfle_native.schema_version() == 1
+          assert metadata.version('velto-core') == metadata.version('velto-cinnamon-core')
           print('PSX:', psx.__file__)
           print('Cinnamon:', _sfle_native.__file__)
           PY
 
-  publish:
-    name: Publish Velto Core and Cinnamon to PyPI
+  verify-release:
+    name: Verify release versions and artifacts
     needs: [build-core, build-native, compatibility]
     if: github.event_name == 'release' && github.event.action == 'published'
     runs-on: ubuntu-24.04
-    permissions:
-      id-token: write
-    environment:
-      name: pypi
-      url: https://pypi.org/project/velto-core/
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
       - uses: actions/download-artifact@v4
         with:
           name: velto-core
@@ -152,12 +161,13 @@ jobs:
           pattern: cinnamon-*
           path: dist/
           merge-multiple: true
-      - name: Validate versions and artifacts
+      - name: Install artifact validation dependencies
+        run: python -m pip install packaging
+      - name: Validate versions and artifact counts
         shell: bash
         env:
           RELEASE_TAG: ${{ github.event.release.tag_name }}
         run: |
-          python -m pip install packaging
           python - <<'PY'
           import os
           import tomllib
@@ -171,13 +181,66 @@ jobs:
           core = tomllib.loads(Path('pyproject.toml').read_text())['project']['version']
           native = tomllib.loads(Path('rust/cinnamon-core/pyproject.toml').read_text())['project']['version']
           assert tag == core == native, (tag, core, native)
+          counts = {'velto-core': 0, 'velto-cinnamon-core': 0}
           for wheel in wheels:
-              _, version, _, _ = parse_wheel_filename(wheel.name)
+              name, version, _, _ = parse_wheel_filename(wheel.name)
               assert str(version) == tag, wheel.name
+              counts[str(name)] += 1
+          assert counts == {'velto-core': 1, 'velto-cinnamon-core': 5}, counts
           for p in sorted(Path('dist').iterdir()):
               print(p.name)
           PY
-      - name: Publish to PyPI via trusted publishing
-        uses: pypa/gh-action-pypi-publish@release/v1
+      - uses: actions/upload-artifact@v4
+        with:
+          name: verified-release
+          path: dist/*
+          if-no-files-found: error
+
+  publish-cinnamon:
+    name: Publish Cinnamon Rust to PyPI
+    needs: verify-release
+    runs-on: ubuntu-24.04
+    permissions:
+      id-token: write
+    environment:
+      name: pypi-cinnamon
+      url: https://pypi.org/project/velto-cinnamon-core/
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: verified-release
+          path: all-dist/
+      - name: Select Cinnamon wheels
+        shell: bash
+        run: |
+          mkdir -p dist
+          cp all-dist/velto_cinnamon_core-*.whl dist/
+          test "$(find dist -maxdepth 1 -name '*.whl' | wc -l)" -eq 5
+      - uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist/
+
+  publish-core:
+    name: Publish Velto Core to PyPI
+    needs: publish-cinnamon
+    runs-on: ubuntu-24.04
+    permissions:
+      id-token: write
+    environment:
+      name: pypi-core
+      url: https://pypi.org/project/velto-core/
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: verified-release
+          path: all-dist/
+      - name: Select Velto Core distribution
+        shell: bash
+        run: |
+          mkdir -p dist
+          cp all-dist/velto_core-*.whl dist/
+          cp all-dist/velto_core-*.tar.gz dist/
+          test "$(find dist -maxdepth 1 -type f | wc -l)" -eq 2
+      - uses: pypa/gh-action-pypi-publish@release/v1
         with:
           packages-dir: dist/
