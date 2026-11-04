@@ -13,6 +13,7 @@ PSX is the UI foundation of **Velto**. It provides a unified interface authoring
 ![GitHub Release](https://img.shields.io/github/v/release/Neuri-AI/PSX?include_prereleases&display_name=release&color=stable)
 ![GitHub Issues](https://img.shields.io/github/issues/Neuri-AI/PSX)
 ![GitHub Issues Closed](https://img.shields.io/github/issues-closed/Neuri-AI/PSX?color=green)
+[![Builds (Windows, Linux & macOS)](https://github.com/Neuri-AI/PSX/actions/workflows/publish-to-pypi.yml/badge.svg)](https://github.com/Neuri-AI/PSX/actions/workflows/publish-to-pypi.yml)
 ![GitHub forks](https://img.shields.io/github/forks/Neuri-AI/PSX)
 ![GitHub stars](https://img.shields.io/github/stars/Neuri-AI/PSX)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
