@@ -244,3 +244,42 @@ jobs:
       - uses: pypa/gh-action-pypi-publish@release/v1
         with:
           packages-dir: dist/
+
+  upload-release-assets:
+    name: Attach distributions to GitHub Release
+    needs: [verify-release, publish-cinnamon, publish-core]
+    if: github.event_name == 'release' && github.event.action == 'published'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - name: Download verified release distributions
+        uses: actions/download-artifact@v4
+        with:
+          name: verified-release
+          path: dist/
+
+      - name: Verify all release assets
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          files = sorted(Path("dist").iterdir())
+          wheels = [p for p in files if p.suffix == ".whl"]
+          sdists = [p for p in files if p.name.endswith(".tar.gz")]
+          assert len(wheels) == 6, [p.name for p in files]
+          assert len(sdists) == 1, [p.name for p in files]
+          assert len(files) == 7, [p.name for p in files]
+          for asset in files:
+              print(asset.name)
+          PY
+
+      - name: Upload wheels and sdist to GitHub Release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          gh release upload "$RELEASE_TAG" dist/* --clobber
