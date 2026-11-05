@@ -39,7 +39,7 @@ pyside2 = ["PySide2>=5.15,<6; python_version < '3.11'"]
 kivy = ["Kivy>=2.3"]
 
 dev = [
-    "pytest>=8.0",
+    "pytest>=9.2.0",
     "psutil>=5.9",
     "tomli>=2; python_version < '3.11'",
     "build>=1.2",
