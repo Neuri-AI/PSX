@@ -192,11 +192,18 @@ jobs:
           test "$(od -An -tu2 -j18 -N2 "$LIB" | tr -d ' ')" = "183"
           # Maturin/PyO3 requires both the target library AND its generated
           # _sysconfigdata module in PYO3_CROSS_LIB_DIR.
-          mapfile -t sysconfig < <(find "$RUNNER_TEMP/p4a/build/other_builds/python3" \
-            -type f -name '_sysconfigdata*.py' -path '*arm64-v8a*' | sort)
+          # p4a generates _sysconfigdata in both the CPython build tree and
+          # the installed Android runtime. Prefer the installed target copy.
+          PYTHON_ROOT="$(dirname "$LIB")/android-root/lib/python${{ matrix.python }}"
+          if [[ ! -d "$PYTHON_ROOT" ]]; then
+            echo "::error::Missing installed Android Python sysconfig directory: $PYTHON_ROOT"
+            exit 1
+          fi
+          mapfile -t sysconfig < <(find "$PYTHON_ROOT" -maxdepth 1 \
+            -type f -name '_sysconfigdata*.py' | sort)
           if (( ${#sysconfig[@]} != 1 )); then
-            echo "::error::Expected exactly one Android ARM64 _sysconfigdata*.py; found ${#sysconfig[@]}"
-            printf '%s\n' "${sysconfig[@]}"
+            echo "::error::Expected exactly one installed Android ARM64 _sysconfigdata*.py; found ${#sysconfig[@]}"
+            printf '%s\\n' "${sysconfig[@]}"
             exit 1
           fi
           # Stage exact target-generated artifacts without modifying p4a's install.
