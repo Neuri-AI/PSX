@@ -1678,4 +1678,4 @@ pyside6 = ["PySide6"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.10,<3.14.20"
-content-hash = "68b008590d903a59c12bd820f4c2a437f50d4ee42bfafe6ee3be3167990191ef"
+content-hash = "47b6f3461c40f0b3337ec7ec6b3b6723475db440bec5608f71e7a83a50fb3d21"
