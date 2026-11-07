@@ -98,6 +98,76 @@ jobs:
           path: dist/*.whl
           if-no-files-found: error
 
+
+  build-android:
+    name: Build Cinnamon / android-arm64-v8a (API 28)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.10'
+      - uses: android-actions/setup-android@v3
+      - name: Install pinned Android NDK
+        shell: bash
+        run: |
+          sdkmanager --install "ndk;28.2.13676358"
+          echo "ANDROID_NDK_HOME=$ANDROID_SDK_ROOT/ndk/28.2.13676358" >> "$GITHUB_ENV"
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android
+      - name: Install build and validation tools
+        run: python -m pip install "maturin>=1.16,<2" packaging
+      - name: Build Android ARM64 ABI3 wheel
+        shell: bash
+        env:
+          PYO3_CROSS_PYTHON_VERSION: '3.10'
+          ANDROID_API: '28'
+        run: |
+          set -euo pipefail
+          NDK_BIN="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin"
+          test -x "$NDK_BIN/aarch64-linux-android28-clang"
+          export CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER="$NDK_BIN/aarch64-linux-android28-clang"
+          export CC_aarch64_linux_android="$NDK_BIN/aarch64-linux-android28-clang"
+          export AR_aarch64_linux_android="$NDK_BIN/llvm-ar"
+          maturin build --release \
+            --manifest-path rust/cinnamon-core/Cargo.toml \
+            --features python \
+            --target aarch64-linux-android \
+            --interpreter python3.10 \
+            --compatibility pypi \
+            --out dist
+      - name: Validate Android wheel platform and ELF architecture
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          from zipfile import ZipFile
+          from packaging.utils import parse_wheel_filename
+
+          wheels = list(Path("dist").glob("*.whl"))
+          assert len(wheels) == 1, [p.name for p in wheels]
+          wheel = wheels[0]
+          name, _, _, tags = parse_wheel_filename(wheel.name)
+          assert str(name) == "velto-cinnamon-core", wheel.name
+          assert any(t.interpreter == "cp310" and t.abi == "abi3"
+                     and t.platform == "android_28_arm64_v8a" for t in tags), wheel.name
+          with ZipFile(wheel) as archive:
+              modules = [n for n in archive.namelist()
+                         if "_sfle_native" in n and n.endswith(".so")]
+              assert len(modules) == 1, modules
+              header = archive.read(modules[0])[:20]
+          assert header[:4] == b"\\x7fELF", header
+          assert header[4] == 2 and header[5] == 1, header  # ELF64 little-endian
+          assert int.from_bytes(header[18:20], "little") == 183, header  # EM_AARCH64
+          print("Validated Android ARM64:", wheel.name, modules[0])
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cinnamon-android-arm64-v8a
+          path: dist/*.whl
+          if-no-files-found: error
+
   compatibility:
     name: Python ${{ matrix.python }} / ${{ matrix.platform }}
     needs: [build-core, build-native]
@@ -144,7 +214,7 @@ jobs:
 
   verify-release:
     name: Verify release versions and artifacts
-    needs: [build-core, build-native, compatibility]
+    needs: [build-core, build-native, build-android, compatibility]
     if: github.event_name == 'release' && github.event.action == 'published'
     runs-on: ubuntu-24.04
     steps:
@@ -175,7 +245,7 @@ jobs:
           from packaging.utils import parse_wheel_filename
           wheels = list(Path('dist').glob('*.whl'))
           sdists = list(Path('dist').glob('*.tar.gz'))
-          assert len(wheels) == 6, [p.name for p in wheels]
+          assert len(wheels) == 7, [p.name for p in wheels]
           assert len(sdists) == 1, [p.name for p in sdists]
           tag = os.environ['RELEASE_TAG'].removeprefix('v')
           core = tomllib.loads(Path('pyproject.toml').read_text())['project']['version']
@@ -186,7 +256,7 @@ jobs:
               name, version, _, _ = parse_wheel_filename(wheel.name)
               assert str(version) == tag, wheel.name
               counts[str(name)] += 1
-          assert counts == {'velto-core': 1, 'velto-cinnamon-core': 5}, counts
+          assert counts == {'velto-core': 1, 'velto-cinnamon-core': 6}, counts
           for p in sorted(Path('dist').iterdir()):
               print(p.name)
           PY
@@ -215,7 +285,7 @@ jobs:
         run: |
           mkdir -p dist
           cp all-dist/velto_cinnamon_core-*.whl dist/
-          test "$(find dist -maxdepth 1 -name '*.whl' | wc -l)" -eq 5
+          test "$(find dist -maxdepth 1 -name '*.whl' | wc -l)" -eq 6
       - uses: pypa/gh-action-pypi-publish@release/v1
         with:
           packages-dir: dist/
@@ -268,9 +338,9 @@ jobs:
           files = sorted(Path("dist").iterdir())
           wheels = [p for p in files if p.suffix == ".whl"]
           sdists = [p for p in files if p.name.endswith(".tar.gz")]
-          assert len(wheels) == 6, [p.name for p in files]
+          assert len(wheels) == 7, [p.name for p in files]
           assert len(sdists) == 1, [p.name for p in files]
-          assert len(files) == 7, [p.name for p in files]
+          assert len(files) == 8, [p.name for p in files]
           for asset in files:
               print(asset.name)
           PY
