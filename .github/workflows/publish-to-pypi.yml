@@ -156,10 +156,10 @@ jobs:
               )
           idx = matches[0]
           indent = lines[idx][:len(lines[idx]) - len(lines[idx].lstrip())]
-          assert indent and lines[idx].endswith("\\n")
+          assert indent and lines[idx].endswith("\n")
           lines[idx] = (
-              indent + "if arch.arch == 'armeabi-v7a':\\n"
-              + indent + "    " + target + "\\n"
+              indent + "if arch.arch == 'armeabi-v7a':\n"
+              + indent + "    " + target + "\n"
           )
           source.write_text("".join(lines))
           print("Restricted ARMv7-only patch in", source)
