@@ -5,7 +5,7 @@ build-backend = "maturin"
 
 [project]
 name = "velto-cinnamon-core"
-version = "0.1.0"
+version = "0.1.1"
 description = "Cinnamon Rust layout engine for Velto"
 requires-python = ">=3.10"
 dependencies = []
