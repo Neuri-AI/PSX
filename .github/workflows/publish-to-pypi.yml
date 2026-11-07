@@ -157,7 +157,7 @@ jobs:
                          if "_sfle_native" in n and n.endswith(".so")]
               assert len(modules) == 1, modules
               header = archive.read(modules[0])[:20]
-          assert header[:4] == b"\\x7fELF", header
+          assert header[:4] == b"\x7fELF", header
           assert header[4] == 2 and header[5] == 1, header  # ELF64 little-endian
           assert int.from_bytes(header[18:20], "little") == 183, header  # EM_AARCH64
           print("Validated Android ARM64:", wheel.name, modules[0])
