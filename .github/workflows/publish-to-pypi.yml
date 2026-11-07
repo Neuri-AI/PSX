@@ -121,7 +121,7 @@ jobs:
         run: |
           set -euo pipefail
           sudo apt-get update
-          sudo apt-get install -y autoconf automake libtool pkg-config cmake patchelf
+          sudo apt-get install -y autoconf automake libtool libltdl-dev pkg-config cmake patchelf
           SDK_ROOT="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-/usr/local/lib/android/sdk}}"
           SDKMANAGER="$(find "$SDK_ROOT/cmdline-tools" -path '*/bin/sdkmanager' -type f | sort -V | tail -n 1)"
           test -n "$SDKMANAGER"
@@ -133,6 +133,33 @@ jobs:
           targets: aarch64-linux-android
       - name: Install Python Android build tools
         run: python -m pip install "maturin>=1.16,<2" "python-for-android" packaging Cython
+      - name: Restrict obsolete CPython ARMv7 patch to 32-bit Android
+        if: matrix.python == '3.14'
+        shell: bash
+        run: |
+          set -euo pipefail
+          # p4a applies this ARMv7-only patch to ARM64 as well. It does
+          # not match CPython 3.14.8, and ARM64 does not need the fix.
+          python - <<'PY'
+          from pathlib import Path
+          import pythonforandroid.recipes.python3 as recipe
+          source = Path(recipe.__file__)
+          content = source.read_text()
+          old = """        if _p_version.minor >= 14:
+            self.patches.append('patches/3.14_armv7l_fix.patch')
+            self.patches.append('patches/3.14_fix_remote_debug.patch')
+          """
+          new = """        if _p_version.minor >= 14:
+            if arch.arch == 'armeabi-v7a':
+                self.patches.append('patches/3.14_armv7l_fix.patch')
+            self.patches.append('patches/3.14_fix_remote_debug.patch')
+          """
+          old, new = old.rstrip(), new.rstrip()
+          if content.count(old) != 1:
+              raise RuntimeError("Unexpected p4a Python3Recipe patch block; refusing unsafe change")
+          source.write_text(content.replace(old, new))
+          print("Restricted ARMv7-only patch in", source)
+          PY
       - name: Build matching CPython Android runtime with p4a
         shell: bash
         env:
