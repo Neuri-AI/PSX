@@ -1,0 +1,106 @@
+name: Publish Velto Core (manual)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish-velto-core
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build and validate Velto Core
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+      - name: Check version is not already on PyPI
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          import tomllib
+          from pathlib import Path
+          from urllib.error import HTTPError
+          from urllib.request import urlopen
+
+          project = tomllib.loads(Path("pyproject.toml").read_text())["project"]
+          assert project["name"] == "velto-core", project["name"]
+          version = project["version"]
+          url = f"https://pypi.org/pypi/velto-core/{version}/json"
+          try:
+              with urlopen(url, timeout=20) as response:
+                  json.load(response)
+          except HTTPError as error:
+              if error.code != 404:
+                  raise
+          else:
+              raise SystemExit(
+                  f"velto-core {version} is already on PyPI. "
+                  "Bump [project].version in pyproject.toml before publishing."
+              )
+          print(f"Building new velto-core version: {version}")
+          PY
+      - name: Build Python wheel and source distribution (no Rust build)
+        run: |
+          python -m pip install --upgrade build twine
+          python -m build --wheel --sdist --outdir dist
+          python -m twine check dist/*
+      - name: Validate Velto Core artifacts
+        shell: bash
+        run: |
+          python - <<'PY'
+          import tomllib
+          from pathlib import Path
+          from zipfile import ZipFile
+          from email.parser import Parser
+
+          version = tomllib.loads(Path("pyproject.toml").read_text())["project"]["version"]
+          wheels = list(Path("dist").glob("*.whl"))
+          sdists = list(Path("dist").glob("*.tar.gz"))
+          assert len(wheels) == 1 and len(sdists) == 1, (wheels, sdists)
+          assert wheels[0].name == f"velto_core-{version}-py3-none-any.whl", wheels[0]
+          with ZipFile(wheels[0]) as archive:
+              entries = archive.namelist()
+              assert any(name.startswith("psx/") and name.endswith(".py") for name in entries)
+              assert not any("_sfle_native" in name for name in entries)
+              metadata_file = next(name for name in entries if name.endswith(".dist-info/METADATA"))
+              metadata = Parser().parsestr(archive.read(metadata_file).decode())
+          assert metadata["Name"].lower() == "velto-core", metadata["Name"]
+          assert metadata["Version"] == version, metadata["Version"]
+          requirements = metadata.get_all("Requires-Dist", [])
+          assert any("velto-cinnamon-core" in requirement.lower() for requirement in requirements), requirements
+          print("Validated:", wheels[0].name, sdists[0].name)
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: velto-core-manual-distributions
+          path: dist/*
+          if-no-files-found: error
+
+  publish:
+    name: Publish Velto Core to PyPI
+    needs: build
+    runs-on: ubuntu-24.04
+    environment:
+      name: pypi-core
+      url: https://pypi.org/project/velto-core/
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: velto-core-manual-distributions
+          path: dist/
+      - uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist/
