@@ -203,7 +203,7 @@ jobs:
                          if "_sfle_native" in n and n.endswith(".so")]
               assert len(modules) == 1, modules
               header = archive.read(modules[0])[:20]
-          assert header[:4] == b"\\x7fELF"
+          assert header[:4] == b"\x7fELF"
           assert header[4:6] == bytes([2, 1])
           assert int.from_bytes(header[18:20], "little") == 183
           print("Validated:", wheels[0].name)
