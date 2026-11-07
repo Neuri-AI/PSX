@@ -196,7 +196,7 @@ jobs:
             -type f -name '_sysconfigdata*.py' -path '*arm64-v8a*' | sort)
           if (( ${#sysconfig[@]} != 1 )); then
             echo "::error::Expected exactly one Android ARM64 _sysconfigdata*.py; found ${#sysconfig[@]}"
-            printf '%s\\n' "${sysconfig[@]}"
+            printf '%s\n' "${sysconfig[@]}"
             exit 1
           fi
           # Stage exact target-generated artifacts without modifying p4a's install.
