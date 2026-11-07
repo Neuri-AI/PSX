@@ -176,6 +176,7 @@ jobs:
             --name="cinnamon-python-${{ matrix.abi }}" \
             --bootstrap=service_only \
             --requirements="python3==$PYTHON_PATCH,hostpython3==$PYTHON_PATCH" \
+            --blacklist-requirements=pyjnius,android,genericndkbuild \
             --arch=arm64-v8a \
             --ndk-api=28 \
             --android-api=35 \
