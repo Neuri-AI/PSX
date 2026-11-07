@@ -145,19 +145,23 @@ jobs:
           import pythonforandroid.recipes.python3 as recipe
           source = Path(recipe.__file__)
           content = source.read_text()
-          old = """        if _p_version.minor >= 14:
-            self.patches.append('patches/3.14_armv7l_fix.patch')
-            self.patches.append('patches/3.14_fix_remote_debug.patch')
-          """
-          new = """        if _p_version.minor >= 14:
-            if arch.arch == 'armeabi-v7a':
-                self.patches.append('patches/3.14_armv7l_fix.patch')
-            self.patches.append('patches/3.14_fix_remote_debug.patch')
-          """
-          old, new = old.rstrip(), new.rstrip()
-          if content.count(old) != 1:
-              raise RuntimeError("Unexpected p4a Python3Recipe patch block; refusing unsafe change")
-          source.write_text(content.replace(old, new))
+          # Match only the offending line; don't depend on the ordering of
+          # unrelated upstream patches or multiline indentation.
+          target = "self.patches.append('patches/3.14_armv7l_fix.patch')"
+          lines = content.splitlines(keepends=True)
+          matches = [i for i, line in enumerate(lines) if line.strip() == target]
+          if len(matches) != 1:
+              raise RuntimeError(
+                  f"Expected exactly one ARMv7 patch registration; found {len(matches)}"
+              )
+          idx = matches[0]
+          indent = lines[idx][:len(lines[idx]) - len(lines[idx].lstrip())]
+          assert indent and lines[idx].endswith("\\n")
+          lines[idx] = (
+              indent + "if arch.arch == 'armeabi-v7a':\\n"
+              + indent + "    " + target + "\\n"
+          )
+          source.write_text("".join(lines))
           print("Restricted ARMv7-only patch in", source)
           PY
       - name: Build matching CPython Android runtime with p4a
