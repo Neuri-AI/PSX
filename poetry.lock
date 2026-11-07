@@ -1531,7 +1531,7 @@ zstd = ["backports-zstd (>=1.0.0) ; python_version < \"3.14\""]
 
 [[package]]
 name = "velto-cinnamon-core"
-version = "0.1.0"
+version = "0.1.1"
 description = "Cinnamon Rust layout engine for Velto"
 optional = false
 python-versions = ">=3.10"
@@ -1575,4 +1575,4 @@ pyside6 = ["PySide6"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.10,<3.14.20"
-content-hash = "8df2aefcfa267f9dc2f09a732871db3372909b888c5c3eef2300893cbae11838"
+content-hash = "68b008590d903a59c12bd820f4c2a437f50d4ee42bfafe6ee3be3167990191ef"
