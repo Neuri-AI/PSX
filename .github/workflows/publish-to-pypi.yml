@@ -303,6 +303,17 @@ jobs:
               assert str(version) == tag, wheel.name
               counts[str(name)] += 1
           assert counts == {'velto-core': 1, 'velto-cinnamon-core': 10}, counts
+          expected_android = {f"cp{minor}" for minor in range(310, 315)}
+          actual_android = set()
+          for wheel in wheels:
+              name, _, _, tags = parse_wheel_filename(wheel.name)
+              if str(name) != 'velto-cinnamon-core':
+                  continue
+              for t in tags:
+                  if t.platform == 'android_28_arm64_v8a':
+                      assert t.interpreter == t.abi, (wheel.name, t)
+                      actual_android.add(t.interpreter)
+          assert actual_android == expected_android, (actual_android, expected_android)
           for p in sorted(Path('dist').iterdir()):
               print(p.name)
           PY
