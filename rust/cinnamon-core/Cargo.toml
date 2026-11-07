@@ -11,13 +11,14 @@ path = "src/lib.rs"
 crate-type = ["rlib", "cdylib"]
 
 [features]
-default = []
+# Desktop keeps a single stable ABI wheel (CPython 3.10+).
+default = ["abi3"]
+abi3 = ["pyo3/abi3-py310"]
 python = ["dep:pyo3"]
 
 [dependencies]
-pyo3 = { version = "0.27", optional = true, features = [
-    "extension-module",
-    "abi3-py310"
-] }
+# Android builds use --no-default-features --features python to produce
+# version-specific CPython wheels linked to the matching Android libpython.
+pyo3 = { version = "0.27", optional = true, features = ["extension-module"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
