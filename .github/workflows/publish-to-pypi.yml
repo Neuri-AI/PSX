@@ -98,6 +98,176 @@ jobs:
           path: dist/*.whl
           if-no-files-found: error
 
+
+  build-android:
+    name: Cinnamon Android ARM64 / Python ${{ matrix.python }}
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {python: '3.10', patch: '3.10.22', abi: cp310}
+          - {python: '3.11', patch: '3.11.17', abi: cp311}
+          - {python: '3.12', patch: '3.12.15', abi: cp312}
+          - {python: '3.13', patch: '3.13.16', abi: cp313}
+          - {python: '3.14', patch: '3.14.8', abi: cp314}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Install Android build prerequisites
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y autoconf automake libtool libltdl-dev pkg-config cmake patchelf
+          SDK_ROOT="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-/usr/local/lib/android/sdk}}"
+          SDKMANAGER="$(find "$SDK_ROOT/cmdline-tools" -path '*/bin/sdkmanager' -type f | sort -V | tail -n 1)"
+          test -n "$SDKMANAGER"
+          "$SDKMANAGER" --sdk_root="$SDK_ROOT" --install "ndk;28.2.13676358"
+          echo "ANDROID_SDK_ROOT=$SDK_ROOT" >> "$GITHUB_ENV"
+          echo "ANDROID_NDK_HOME=$SDK_ROOT/ndk/28.2.13676358" >> "$GITHUB_ENV"
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android
+      - name: Install Python Android build tools
+        run: python -m pip install "maturin>=1.16,<2" "python-for-android" packaging Cython
+      - name: Restrict obsolete CPython ARMv7 patch to 32-bit Android
+        if: matrix.python == '3.14'
+        shell: bash
+        run: |
+          set -euo pipefail
+          # p4a applies this ARMv7-only patch to ARM64 as well. It does
+          # not match CPython 3.14.8, and ARM64 does not need the fix.
+          python - <<'PY'
+          from pathlib import Path
+          import pythonforandroid.recipes.python3 as recipe
+          source = Path(recipe.__file__)
+          content = source.read_text()
+          # Match only the offending line; don't depend on the ordering of
+          # unrelated upstream patches or multiline indentation.
+          target = "self.patches.append('patches/3.14_armv7l_fix.patch')"
+          lines = content.splitlines(keepends=True)
+          matches = [i for i, line in enumerate(lines) if line.strip() == target]
+          if len(matches) != 1:
+              raise RuntimeError(
+                  f"Expected exactly one ARMv7 patch registration; found {len(matches)}"
+              )
+          idx = matches[0]
+          indent = lines[idx][:len(lines[idx]) - len(lines[idx].lstrip())]
+          assert indent and lines[idx].endswith("\n")
+          lines[idx] = (
+              indent + "if arch.arch == 'armeabi-v7a':\n"
+              + indent + "    " + target + "\n"
+          )
+          source.write_text("".join(lines))
+          print("Restricted ARMv7-only patch in", source)
+          PY
+      - name: Build matching CPython Android runtime with p4a
+        shell: bash
+        env:
+          PYTHON_PATCH: ${{ matrix.patch }}
+        run: |
+          set -euo pipefail
+          # Unlike the previous build, use a REAL Android CPython runtime
+          # for each version rather than linking 3.11-3.14 against 3.10.
+          p4a create \
+            --name="cinnamon-python-${{ matrix.abi }}" \
+            --bootstrap=service_only \
+            --requirements="python3==$PYTHON_PATCH,hostpython3==$PYTHON_PATCH" \
+            --blacklist-requirements=pyjnius,android,genericndkbuild \
+            --arch=arm64-v8a \
+            --ndk-api=28 \
+            --android-api=35 \
+            --sdk-dir="$ANDROID_SDK_ROOT" \
+            --ndk-dir="$ANDROID_NDK_HOME" \
+            --storage-dir="$RUNNER_TEMP/p4a"
+          mapfile -t libs < <(find "$RUNNER_TEMP/p4a" -type f -name "libpython${{ matrix.python }}.so" -path '*arm64-v8a*')
+          if (( ${#libs[@]} == 0 )); then
+            echo "::error::Android libpython${{ matrix.python }}.so was not built by p4a"
+            exit 1
+          fi
+          LIB="${libs[0]}"
+          test "$(od -An -tu2 -j18 -N2 "$LIB" | tr -d ' ')" = "183"
+          # Maturin/PyO3 requires both the target library AND its generated
+          # _sysconfigdata module in PYO3_CROSS_LIB_DIR.
+          # p4a generates _sysconfigdata in both the CPython build tree and
+          # the installed Android runtime. Prefer the installed target copy.
+          PYTHON_ROOT="$(dirname "$LIB")/android-root/lib/python${{ matrix.python }}"
+          if [[ ! -d "$PYTHON_ROOT" ]]; then
+            echo "::error::Missing installed Android Python sysconfig directory: $PYTHON_ROOT"
+            exit 1
+          fi
+          mapfile -t sysconfig < <(find "$PYTHON_ROOT" -maxdepth 1 \
+            -type f -name '_sysconfigdata*.py' | sort)
+          if (( ${#sysconfig[@]} != 1 )); then
+            echo "::error::Expected exactly one installed Android ARM64 _sysconfigdata*.py; found ${#sysconfig[@]}"
+            printf '%s\n' "${sysconfig[@]}"
+            exit 1
+          fi
+          # Stage exact target-generated artifacts without modifying p4a's install.
+          STAGE="$RUNNER_TEMP/cinnamon-android-python-${{ matrix.abi }}"
+          mkdir -p "$STAGE"
+          ln -s "$LIB" "$STAGE/$(basename "$LIB")"
+          cp "${sysconfig[0]}" "$STAGE/$(basename "${sysconfig[0]}")"
+          echo "ANDROID_PYTHON_LIB_DIR=$STAGE" >> "$GITHUB_ENV"
+          echo "Android CPython: $LIB"
+          echo "Android sysconfig: ${sysconfig[0]}"
+      - name: Build Android wheel for CPython ${{ matrix.python }}
+        shell: bash
+        env:
+          PYO3_CROSS_PYTHON_VERSION: ${{ matrix.python }}
+          ANDROID_API: '28'
+        run: |
+          set -euo pipefail
+          NDK_BIN="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin"
+          export CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER="$NDK_BIN/aarch64-linux-android28-clang"
+          export CC_aarch64_linux_android="$NDK_BIN/aarch64-linux-android28-clang"
+          export AR_aarch64_linux_android="$NDK_BIN/llvm-ar"
+          export PYO3_CROSS_LIB_DIR="$ANDROID_PYTHON_LIB_DIR"
+          export RUSTFLAGS="-L native=$ANDROID_PYTHON_LIB_DIR"
+          maturin build --release \
+            --manifest-path rust/cinnamon-core/Cargo.toml \
+            --no-default-features \
+            --features python \
+            --target aarch64-linux-android \
+            --interpreter "python${{ matrix.python }}" \
+            --compatibility pypi \
+            --out dist
+      - name: Verify CPython tag and ELF target
+        shell: bash
+        env:
+          EXPECTED_ABI: ${{ matrix.abi }}
+        run: |
+          python - <<'PY'
+          import os
+          from pathlib import Path
+          from zipfile import ZipFile
+          from packaging.utils import parse_wheel_filename
+          wheels = list(Path("dist").glob("*.whl"))
+          assert len(wheels) == 1, [x.name for x in wheels]
+          name, _, _, tags = parse_wheel_filename(wheels[0].name)
+          expected = os.environ["EXPECTED_ABI"]
+          assert str(name) == "velto-cinnamon-core"
+          assert any(t.interpreter == expected and t.abi == expected and
+                     t.platform == "android_28_arm64_v8a" for t in tags), wheels[0].name
+          with ZipFile(wheels[0]) as archive:
+              modules = [n for n in archive.namelist()
+                         if "_sfle_native" in n and n.endswith(".so")]
+              assert len(modules) == 1, modules
+              header = archive.read(modules[0])[:20]
+          assert header[:4] == b"\x7fELF"
+          assert header[4:6] == bytes([2, 1])
+          assert int.from_bytes(header[18:20], "little") == 183
+          print("Validated:", wheels[0].name)
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cinnamon-android-${{ matrix.abi }}-arm64-v8a
+          path: dist/*.whl
+          if-no-files-found: error
+
   compatibility:
     name: Python ${{ matrix.python }} / ${{ matrix.platform }}
     needs: [build-core, build-native]
@@ -144,7 +314,7 @@ jobs:
 
   verify-release:
     name: Verify release versions and artifacts
-    needs: [build-core, build-native, compatibility]
+    needs: [build-core, build-native, build-android, compatibility]
     if: github.event_name == 'release' && github.event.action == 'published'
     runs-on: ubuntu-24.04
     steps:
@@ -175,7 +345,7 @@ jobs:
           from packaging.utils import parse_wheel_filename
           wheels = list(Path('dist').glob('*.whl'))
           sdists = list(Path('dist').glob('*.tar.gz'))
-          assert len(wheels) == 6, [p.name for p in wheels]
+          assert len(wheels) == 11, [p.name for p in wheels]
           assert len(sdists) == 1, [p.name for p in sdists]
           tag = os.environ['RELEASE_TAG'].removeprefix('v')
           core = tomllib.loads(Path('pyproject.toml').read_text())['project']['version']
@@ -186,7 +356,18 @@ jobs:
               name, version, _, _ = parse_wheel_filename(wheel.name)
               assert str(version) == tag, wheel.name
               counts[str(name)] += 1
-          assert counts == {'velto-core': 1, 'velto-cinnamon-core': 5}, counts
+          assert counts == {'velto-core': 1, 'velto-cinnamon-core': 10}, counts
+          expected_android = {f"cp{minor}" for minor in range(310, 315)}
+          actual_android = set()
+          for wheel in wheels:
+              name, _, _, tags = parse_wheel_filename(wheel.name)
+              if str(name) != 'velto-cinnamon-core':
+                  continue
+              for t in tags:
+                  if t.platform == 'android_28_arm64_v8a':
+                      assert t.interpreter == t.abi, (wheel.name, t)
+                      actual_android.add(t.interpreter)
+          assert actual_android == expected_android, (actual_android, expected_android)
           for p in sorted(Path('dist').iterdir()):
               print(p.name)
           PY
@@ -215,7 +396,7 @@ jobs:
         run: |
           mkdir -p dist
           cp all-dist/velto_cinnamon_core-*.whl dist/
-          test "$(find dist -maxdepth 1 -name '*.whl' | wc -l)" -eq 5
+          test "$(find dist -maxdepth 1 -name '*.whl' | wc -l)" -eq 10
       - uses: pypa/gh-action-pypi-publish@release/v1
         with:
           packages-dir: dist/
@@ -268,9 +449,9 @@ jobs:
           files = sorted(Path("dist").iterdir())
           wheels = [p for p in files if p.suffix == ".whl"]
           sdists = [p for p in files if p.name.endswith(".tar.gz")]
-          assert len(wheels) == 6, [p.name for p in files]
+          assert len(wheels) == 11, [p.name for p in files]
           assert len(sdists) == 1, [p.name for p in files]
-          assert len(files) == 7, [p.name for p in files]
+          assert len(files) == 12, [p.name for p in files]
           for asset in files:
               print(asset.name)
           PY
