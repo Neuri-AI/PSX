@@ -1,7 +1,7 @@
 
 [project]
 name = "velto-core"
-version = "0.1.0"
+version = "0.1.1"
 requires-python = ">=3.10,<3.14.20"
 description = "Velto is a declarative, reactive Python UI framework with native rendering, expressive PSX markup, and cross-platform layout powered by Cinnamon."
 readme = "README.md"
