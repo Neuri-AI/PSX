@@ -163,7 +163,6 @@ jobs:
           export CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER="$NDK_BIN/aarch64-linux-android28-clang"
           export CC_aarch64_linux_android="$NDK_BIN/aarch64-linux-android28-clang"
           export AR_aarch64_linux_android="$NDK_BIN/llvm-ar"
-          export PYO3_CROSS_LIB_DIR="$ANDROID_PYTHON_LIB_DIR"
           export RUSTFLAGS="-L native=$ANDROID_PYTHON_LIB_DIR"
           maturin build --release \
             --manifest-path rust/cinnamon-core/Cargo.toml \
