@@ -4,13 +4,82 @@ on:
   release:
     types: [published]
   workflow_dispatch:
+    inputs:
+      component:
+        description: 'Build target (manual runs never publish)'
+        type: choice
+        required: true
+        default: core
+        options:
+          - core
+          - cinnamon
 
 permissions:
   contents: read
 
 jobs:
+  plan:
+    name: Validate independent package versions
+    runs-on: ubuntu-24.04
+    outputs:
+      component: ${{ steps.versions.outputs.component }}
+      core_version: ${{ steps.versions.outputs.core_version }}
+      cinnamon_version: ${{ steps.versions.outputs.cinnamon_version }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+      - name: Validate versions, compatibility and release tag
+        id: versions
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          REQUESTED_COMPONENT: ${{ inputs.component }}
+        run: |
+          python -m pip install 'packaging>=24'
+          python - <<'PY'
+          import os
+          import tomllib
+          from pathlib import Path
+          from packaging.requirements import Requirement
+
+          root = tomllib.loads(Path("pyproject.toml").read_text())
+          cinnamon = tomllib.loads(Path("rust/cinnamon-core/pyproject.toml").read_text())
+          cargo = tomllib.loads(Path("rust/cinnamon-core/Cargo.toml").read_text())
+          core_version = root["project"]["version"]
+          native_version = cinnamon["project"]["version"]
+          assert cargo["package"]["version"] == native_version
+          requirements = [Requirement(req) for req in root["project"]["dependencies"]]
+          native_reqs = [req for req in requirements if req.name.lower() == "velto-cinnamon-core"]
+          assert len(native_reqs) == 1, native_reqs
+          spec = native_reqs[0].specifier
+          assert native_version in spec, (native_version, str(spec))
+
+          tag = os.environ.get("RELEASE_TAG") or ""
+          if os.environ["EVENT_NAME"] == "release":
+              if tag.startswith("cinnamon-v"):
+                  component = "cinnamon"
+                  assert tag == "cinnamon-v" + native_version, (tag, native_version)
+              else:
+                  component = "core"
+                  assert tag == "v" + core_version, (tag, core_version)
+          else:
+              component = os.environ.get("REQUESTED_COMPONENT") or "core"
+              assert component in {"core", "cinnamon"}
+
+          with open(os.environ["GITHUB_OUTPUT"], "a") as output:
+              print(f"component={component}", file=output)
+              print(f"core_version={core_version}", file=output)
+              print(f"cinnamon_version={native_version}", file=output)
+          print(f"Release target: {component}; Core {core_version}, Cinnamon {native_version}, allowed: {spec}")
+          PY
+
   build-core:
     name: Build Velto Core Python distribution
+    needs: plan
+    if: needs.plan.outputs.component == 'core'
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
@@ -51,6 +120,8 @@ jobs:
 
   build-native:
     name: Build Cinnamon / ${{ matrix.platform }}
+    needs: plan
+    if: needs.plan.outputs.component == 'cinnamon'
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -101,6 +172,8 @@ jobs:
 
   build-android:
     name: Cinnamon Android ARM64 / Python ${{ matrix.python }}
+    needs: plan
+    if: needs.plan.outputs.component == 'cinnamon'
     runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
@@ -270,7 +343,8 @@ jobs:
 
   compatibility:
     name: Python ${{ matrix.python }} / ${{ matrix.platform }}
-    needs: [build-core, build-native]
+    needs: [plan, build-core]
+    if: needs.plan.outputs.component == 'core'
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -291,13 +365,10 @@ jobs:
         with:
           name: velto-core
           path: dist/
-      - uses: actions/download-artifact@v4
-        with:
-          name: cinnamon-${{ matrix.platform }}
-          path: dist/
       - name: Install wheels without source builds
         shell: bash
         run: |
+          python -m pip install --upgrade pip packaging
           python -m pip install --only-binary=:all: --find-links=dist velto-core
       - name: Validate installed packages and native module
         shell: bash
@@ -307,15 +378,29 @@ jobs:
           import psx
           import _sfle_native
           assert _sfle_native.schema_version() == 1
-          assert metadata.version('velto-core') == metadata.version('velto-cinnamon-core')
+          from packaging.requirements import Requirement
+          requirements = [Requirement(r) for r in metadata.requires('velto-core') or []]
+          cinnamon = [r for r in requirements if r.name.lower() == 'velto-cinnamon-core']
+          assert len(cinnamon) == 1
+          installed = metadata.version('velto-cinnamon-core')
+          assert installed in cinnamon[0].specifier, (installed, cinnamon[0])
           print('PSX:', psx.__file__)
           print('Cinnamon:', _sfle_native.__file__)
           PY
 
   verify-release:
-    name: Verify release versions and artifacts
-    needs: [build-core, build-native, build-android, compatibility]
-    if: github.event_name == 'release' && github.event.action == 'published'
+    name: Verify selected release artifacts
+    needs: [plan, build-core, build-native, build-android, compatibility]
+    if: >-
+      always() && github.event_name == 'release' &&
+      github.event.action == 'published' &&
+      needs.plan.result == 'success' &&
+      ((needs.plan.outputs.component == 'core' &&
+        needs.build-core.result == 'success' &&
+        needs.compatibility.result == 'success') ||
+       (needs.plan.outputs.component == 'cinnamon' &&
+        needs.build-native.result == 'success' &&
+        needs.build-android.result == 'success'))
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
@@ -323,53 +408,55 @@ jobs:
         with:
           python-version: '3.11'
       - uses: actions/download-artifact@v4
+        if: needs.plan.outputs.component == 'core'
         with:
           name: velto-core
           path: dist/
       - uses: actions/download-artifact@v4
+        if: needs.plan.outputs.component == 'cinnamon'
         with:
           pattern: cinnamon-*
           path: dist/
           merge-multiple: true
-      - name: Install artifact validation dependencies
-        run: python -m pip install packaging
-      - name: Validate versions and artifact counts
+      - name: Validate selected version and artifacts
         shell: bash
         env:
-          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          COMPONENT: ${{ needs.plan.outputs.component }}
+          CORE_VERSION: ${{ needs.plan.outputs.core_version }}
+          CINNAMON_VERSION: ${{ needs.plan.outputs.cinnamon_version }}
         run: |
+          python -m pip install packaging
           python - <<'PY'
           import os
-          import tomllib
           from pathlib import Path
           from packaging.utils import parse_wheel_filename
-          wheels = list(Path('dist').glob('*.whl'))
-          sdists = list(Path('dist').glob('*.tar.gz'))
-          assert len(wheels) == 11, [p.name for p in wheels]
-          assert len(sdists) == 1, [p.name for p in sdists]
-          tag = os.environ['RELEASE_TAG'].removeprefix('v')
-          core = tomllib.loads(Path('pyproject.toml').read_text())['project']['version']
-          native = tomllib.loads(Path('rust/cinnamon-core/pyproject.toml').read_text())['project']['version']
-          assert tag == core == native, (tag, core, native)
-          counts = {'velto-core': 0, 'velto-cinnamon-core': 0}
-          for wheel in wheels:
-              name, version, _, _ = parse_wheel_filename(wheel.name)
-              assert str(version) == tag, wheel.name
-              counts[str(name)] += 1
-          assert counts == {'velto-core': 1, 'velto-cinnamon-core': 10}, counts
-          expected_android = {f"cp{minor}" for minor in range(310, 315)}
-          actual_android = set()
-          for wheel in wheels:
-              name, _, _, tags = parse_wheel_filename(wheel.name)
-              if str(name) != 'velto-cinnamon-core':
-                  continue
-              for t in tags:
-                  if t.platform == 'android_28_arm64_v8a':
-                      assert t.interpreter == t.abi, (wheel.name, t)
-                      actual_android.add(t.interpreter)
-          assert actual_android == expected_android, (actual_android, expected_android)
-          for p in sorted(Path('dist').iterdir()):
-              print(p.name)
+
+          component = os.environ["COMPONENT"]
+          files = sorted(Path("dist").iterdir())
+          wheels = [p for p in files if p.suffix == ".whl"]
+          sdists = [p for p in files if p.name.endswith(".tar.gz")]
+
+          if component == "core":
+              assert len(wheels) == 1 and len(sdists) == 1, [p.name for p in files]
+              name, version, _, tags = parse_wheel_filename(wheels[0].name)
+              assert str(name) == "velto-core"
+              assert str(version) == os.environ["CORE_VERSION"]
+              assert any(t.interpreter == "py3" and t.abi == "none" and t.platform == "any" for t in tags)
+          else:
+              assert component == "cinnamon"
+              assert len(wheels) == 10 and not sdists, [p.name for p in files]
+              android = set()
+              for wheel in wheels:
+                  name, version, _, tags = parse_wheel_filename(wheel.name)
+                  assert str(name) == "velto-cinnamon-core"
+                  assert str(version) == os.environ["CINNAMON_VERSION"]
+                  for tag in tags:
+                      if tag.platform == "android_28_arm64_v8a":
+                          assert tag.interpreter == tag.abi, wheel.name
+                          android.add(tag.interpreter)
+              assert android == {"cp310", "cp311", "cp312", "cp313", "cp314"}, android
+          for file in files:
+              print(file.name)
           PY
       - uses: actions/upload-artifact@v4
         with:
@@ -379,7 +466,8 @@ jobs:
 
   publish-cinnamon:
     name: Publish Cinnamon Rust to PyPI
-    needs: verify-release
+    needs: [plan, verify-release]
+    if: needs.plan.outputs.component == 'cinnamon'
     runs-on: ubuntu-24.04
     permissions:
       id-token: write
@@ -403,7 +491,8 @@ jobs:
 
   publish-core:
     name: Publish Velto Core to PyPI
-    needs: publish-cinnamon
+    needs: [plan, verify-release]
+    if: needs.plan.outputs.component == 'core'
     runs-on: ubuntu-24.04
     permissions:
       id-token: write
@@ -428,34 +517,35 @@ jobs:
 
   upload-release-assets:
     name: Attach distributions to GitHub Release
-    needs: [verify-release, publish-cinnamon, publish-core]
-    if: github.event_name == 'release' && github.event.action == 'published'
+    needs: [plan, verify-release, publish-cinnamon, publish-core]
+    if: >-
+      always() && github.event_name == 'release' &&
+      github.event.action == 'published' &&
+      needs.verify-release.result == 'success' &&
+      ((needs.plan.outputs.component == 'core' && needs.publish-core.result == 'success') ||
+       (needs.plan.outputs.component == 'cinnamon' && needs.publish-cinnamon.result == 'success'))
     runs-on: ubuntu-24.04
     permissions:
       contents: write
     steps:
-      - name: Download verified release distributions
-        uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v4
         with:
           name: verified-release
           path: dist/
-
-      - name: Verify all release assets
+      - name: Verify selected release asset count
         shell: bash
+        env:
+          COMPONENT: ${{ needs.plan.outputs.component }}
         run: |
           python - <<'PY'
+          import os
           from pathlib import Path
-
           files = sorted(Path("dist").iterdir())
-          wheels = [p for p in files if p.suffix == ".whl"]
-          sdists = [p for p in files if p.name.endswith(".tar.gz")]
-          assert len(wheels) == 11, [p.name for p in files]
-          assert len(sdists) == 1, [p.name for p in files]
-          assert len(files) == 12, [p.name for p in files]
-          for asset in files:
-              print(asset.name)
+          expected = 2 if os.environ["COMPONENT"] == "core" else 10
+          assert len(files) == expected, [p.name for p in files]
+          for f in files:
+              print(f.name)
           PY
-
       - name: Upload wheels and sdist to GitHub Release
         shell: bash
         env:
